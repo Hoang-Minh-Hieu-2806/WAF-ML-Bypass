@@ -404,36 +404,36 @@ WAF-ML-Bypass/
 
 ### Vai trò các thư mục
 
-| Directory | Vai trò |
-|---|---|
-| `dataset/raw/` | Dataset gốc chưa xử lý |
-| `dataset/processed/` | Dataset sau preprocessing |
-| `dataset/bypass/` | Các test case phục vụ bypass experiments |
-| `dataset/bypass/hpp/` | Test cases HPP / Fragmentation |
-| `dataset/bypass/double-encoding/` | Test cases Double Encoding |
-| `dataset/bypass/case-comment/` | Test cases Case Variation + SQL Comment |
-| `dataset/bypass/parsing-discrepancy/` | Test cases Parsing Discrepancy |
-| `docker/` | Các file phục vụ deployment bằng Docker |
-| `docker/waf-crs/` | Docker configuration/runtime setup cho ModSecurity + CRS |
-| `docker/waf-ml/` | Docker configuration/runtime setup cho ML-WAF |
-| `docker/web-app/` | Docker configuration/runtime setup cho web application |
-| `waf-crs/` | Configuration, rule customization và tài liệu riêng của CRS WAF |
-| `waf-ml/` | Source code và configuration của ML-WAF |
-| `web-app/` | Source code của web application mục tiêu trong lab |
-| `experiments/` | Tổ chức các experiment theo từng nhóm |
-| `experiments/baseline/` | Baseline testing trước khi mutation |
-| `experiments/hpp/` | Experiment HPP / Fragmentation |
-| `experiments/double-encoding/` | Experiment Double Encoding |
-| `experiments/case-comment/` | Experiment Case Variation + SQL Comment |
-| `experiments/parsing-discrepancy/` | Experiment Parsing Discrepancy |
-| `scripts/` | Script tự động hóa testing và data processing |
-| `logs/waf/` | Log từ WAF |
-| `logs/application/` | Log từ web application |
-| `results/raw/` | Kết quả thô từ experiments |
-| `results/tables/` | Bảng kết quả đã tổng hợp |
-| `results/graphs/` | Biểu đồ và visualization |
-| `docs/` | Technical documentation và research notes |
-| `report/` | Tài liệu phục vụ báo cáo cuối kỳ |
+| Directory | Vai trò | Phụ trách chính |
+|---|---|---|
+| `dataset/raw/` | Dataset gốc chưa xử lý | Đặng Văn Hoàng |
+| `dataset/processed/` | Dataset sau preprocessing | Đặng Văn Hoàng |
+| `dataset/bypass/` | Các test case phục vụ bypass experiments | Lê Đình Long |
+| `dataset/bypass/hpp/` | Test cases HPP / Fragmentation | Lê Đình Long |
+| `dataset/bypass/double-encoding/` | Test cases Double Encoding | Lê Đình Long |
+| `dataset/bypass/case-comment/` | Test cases Case Variation + SQL Comment | Lê Đình Long |
+| `dataset/bypass/parsing-discrepancy/` | Test cases Parsing Discrepancy | Lê Đình Long |
+| `docker/` + `docker-compose.yml` | Deployment 3 service web-app / waf-crs / waf-ml | Hoàng Minh Hiếu |
+| `docker/waf-crs/` | Docker configuration/runtime setup cho ModSecurity + CRS | Châu Gia Huy |
+| `docker/waf-ml/` | Docker configuration/runtime setup cho ML-WAF | Đặng Văn Hoàng (+ Hoàng Minh Hiếu tích hợp) |
+| `docker/web-app/` | Docker configuration/runtime setup cho web application | Hoàng Minh Hiếu |
+| `waf-crs/` | Configuration, rule customization và tài liệu riêng của CRS WAF | Châu Gia Huy |
+| `waf-ml/` | Source code và configuration của ML-WAF | Đặng Văn Hoàng |
+| `web-app/` | Source code của web application mục tiêu trong lab | Hoàng Minh Hiếu |
+| `experiments/` | Tổ chức các experiment theo từng nhóm | Lê Đình Long + Huỳnh Như Hoàng |
+| `experiments/baseline/` | Baseline testing trước khi mutation | Châu Gia Huy + Huỳnh Như Hoàng |
+| `experiments/hpp/` | Experiment HPP / Fragmentation | Lê Đình Long |
+| `experiments/double-encoding/` | Experiment Double Encoding | Lê Đình Long |
+| `experiments/case-comment/` | Experiment Case Variation + SQL Comment | Lê Đình Long |
+| `experiments/parsing-discrepancy/` | Experiment Parsing Discrepancy | Lê Đình Long |
+| `scripts/` | Script tự động hóa testing và data processing | Huỳnh Như Hoàng (+ Hoàng Minh Hiếu giao thức nội bộ) |
+| `logs/waf/` | Log từ WAF | Châu Gia Huy / Đặng Văn Hoàng |
+| `logs/application/` | Log từ web application | Hoàng Minh Hiếu |
+| `results/raw/` | Kết quả thô từ experiments | Huỳnh Như Hoàng |
+| `results/tables/` | Bảng kết quả đã tổng hợp | Huỳnh Như Hoàng |
+| `results/graphs/` | Biểu đồ và visualization | Huỳnh Như Hoàng |
+| `docs/` | Technical documentation và research notes | Tất cả (mỗi module ≥1 file .md) |
+| `report/` | Tài liệu phục vụ báo cáo cuối kỳ | Tất cả (theo phần trách nhiệm) |
 
 ### `docker/` và các thư mục module khác nhau như thế nào?
 
@@ -618,67 +618,93 @@ DOI:
 
 ## 🗓️ Project Roadmap
 
-Đồ án dự kiến triển khai trong **12 tuần**.
+Đồ án triển khai trong **12 tuần (09/10/2026 → 12 tuần, triển khai lặp)**, theo `Kế hoạch thực thi đồ án.md`.
 
 ```text
-Week 01–02
-Research + Architecture
+Tuần 01–02: Tổng quan & Lab Docker
+  - Nghiên cứu ModSecurity+CRS, ML-WAF, kỹ thuật bypass
+  - Thiết kế kiến trúc, schema test-case/result, repo + branch dev
+  - MILESTONE: docker compose up -d chạy 3 container trống, web-app :8080 trả 200
         │
         ▼
-Week 03–04
-Docker Lab + Web Application
+Tuần 03–04: ModSecurity + CRS & Baseline
+  - Web App 3 endpoint (GET /search, GET /product, POST /login) + app.log
+  - ModSecurity v3 + OWASP CRS, blocking, audit log
+  - Bộ baseline ≥10 case (5 benign / 5 malicious), tính Detection & FPR
+  - MILESTONE: SQLi mẫu bị 403 + rule ID, benign được forward 200
         │
         ▼
-Week 05–06
-ModSecurity/CRS + ML-WAF
+Tuần 05–06: ML-WAF Pipeline & Đào tạo Model
+  - dataset/raw (SQLi + benign), schema CSV/JSON, TF-IDF/BOW
+  - Logistic Regression / SVM, split 70/30 + Cross-Validation, chống leakage
+  - API scoring Flask/FastAPI {label, score} + version model
+  - MILESTONE: curl 1 request vào ML-WAF nhận được nhãn, chạy song song CRS
         │
         ▼
-Week 07–09
-Bypass Experiments
+Tuần 07–08: Bypass HPP & Double-Encoding
+  - Đóng băng schema test-case JSON, payload HPP + double-encoding
+  - scripts/run_experiment.py chạy qua cả CRS và ML-WAF, so sánh audit.log vs app log
+  - MILESTONE: bảng block/allow CRS vs ML cho 2 kỹ thuật + nguyên nhân bypass
         │
         ▼
-Week 10
-Evaluation + Data Analysis
+Tuần 09: Case Variation + SQL Comment
+  - Payload SeLeCt, comment --/#, kiểm tra CRS rule logs + độ nhạy ML
+  - MILESTONE: so sánh CRS vs ML cho case/comment + phân tích nguyên nhân
         │
         ▼
-Week 11
-CRS Hardening + Recommendations
+Tuần 10: Parsing Discrepancy
+  - 1–2 kiểu (duplicate params / trailer headers / chunked...), trích WAFFLED
+  - MILESTONE: demo 1 case WAF không thấy nhưng app thực thi + sơ đồ luồng
         │
         ▼
-Week 12
-Report + Presentation + Demo
+Tuần 11: Tổng hợp & Phân tích
+  - Gộp results, tính Detection / Bypass / FPR / FNR + Precision/Recall/F1 riêng cho CRS và ML theo từng kỹ thuật
+  - Bar chart CRS vs ML, rule ID kích hoạt nhiều nhất
+  - MILESTONE: bảng tổng kết điểm số theo từng kỹ thuật
+        │
+        ▼
+Tuần 12: Hardening & Báo cáo
+  - Tăng Paranoia Level PL1→PL3, đo lại detection vs FP, đề xuất đánh đổi
+  - Báo cáo (Giới thiệu, Kiến trúc, Thực nghiệm, Kết quả, Phân tích, Hardening, Kết luận) + slide demo
+  - MILESTONE: lab đầy đủ + báo cáo thô + slide có dữ liệu
 ```
+
+> *Lưu ý: thời hạn thực tế linh hoạt ±1 tuần tùy tiến độ.*
 
 ---
 
 ## 👥 Phân công nhóm
 
-| Member | Responsibility | Main Deliverables |
-|---|---|---|
-| **Member 1** | Architecture & Integration | Docker, integration, repository |
-| **Member 2** | ModSecurity + CRS | Signature WAF, CRS configuration |
-| **Member 3** | Machine Learning | Dataset, model, ML-WAF |
-| **Member 4** | Bypass Research | Bypass techniques, parser analysis |
-| **Member 5** | Automation & Evaluation | Test automation, metrics, visualization |
+**Đội dự án**: 5 thành viên — Hoàng Minh Hiếu, Châu Gia Huy, Đặng Văn Hoàng, Lê Đình Long, Huỳnh Như Hoàng.
 
-Các thành viên cần phối hợp và hiểu toàn bộ pipeline để đảm bảo khả năng tích hợp và bảo vệ đồ án.
+| Thành viên | Trách nhiệm chính | Files / Modules đảm nhận | Nhiệm vụ cụ thể (Checklist) |
+|---|---|---|---|
+| **Hoàng Minh Hiếu** | Kiến trúc & Tích hợp tổng thể | `docker/`, `docker-compose.yml`, `scripts/` | - Thiết kế Docker Compose 3 service **web-app, waf-crs, waf-ml**; <br> - Đảm bảo network & port không trùng; <br> - Cài đặt giao thức nội bộ giữa các container; <br> - Viết tài liệu hướng dẫn chạy lab (Quick Start). |
+| **Châu Gia Huy** | WAF Signature (ModSecurity + CRS) | `waf-crs/`, `docker/waf-crs/` | - Cài đặt ModSecurity 3.x + OWASP CRS mới nhất; <br> - Cấu hình blocking + audit log chi tiết; <br> - Kiểm tra rule SQLi mẫu (phải bị chặn 403); <br> - Thiết lập 3 mức Paranoia Level và so sánh sơ bộ. |
+| **Đặng Văn Hoàng** | Machine-Learning WAF | `waf-ml/`, `docker/waf-ml/`, `dataset/` | - Chuẩn bị dataset labeled (SQLi, XSS, benign); <br> - Tiền xử lý (tokenize, vectorize TF-IDF/BOW); <br> - Huấn luyện baseline (Logistic Regression / SVM); <br> - Cung cấp API Flask/FastAPI `{label, score}`; <br> - Quản lý phiên bản model. |
+| **Lê Đình Long** | Bypass Research (Payloads) | `dataset/bypass/`, `experiments/` | - Xây test-case cho 4 kỹ thuật (HPP, double-encoding, case/comment, parsing-discrepancy) theo schema thống nhất; <br> - Phát triển payload ví dụ và đối chứng; <br> - Phân tích khác biệt parser WAF vs App; <br> - Soạn tài liệu kỹ thuật từng kỹ thuật. |
+| **Huỳnh Như Hoàng** | Tự động hóa & Đánh giá | `scripts/`, `results/`, `experiments/` | - Viết `scripts/run_experiment.py`: gửi request, thu thập quyết định WAF & App, lưu CSV/JSON; <br> - Tính metrics (Detection, Bypass, FPR, FNR, Precision, Recall, F1); <br> - Vẽ biểu đồ so sánh CRS vs ML; <br> - Bảo đảm kết quả tái lập được. |
+
+> Mỗi thành viên **(1)** tự hiểu pipeline end-to-end, **(2)** phối hợp về giao diện chung (schema test-case, định dạng log, API scoring), **(3)** review lẫn nhau. Không ai làm toàn bộ riêng lẻ — cần liên tục tích hợp.
 
 ---
 
 ## 🔄 Development Workflow
 
-Repository hiện sử dụng `main` làm branch chính.
+Repository dùng GitFlow: `main` là stable, `dev` là nhánh tích hợp. Mỗi tính năng phát triển trên branch riêng (`feature/<name>`).
 
 Mỗi thành viên phát triển trên feature branch:
 
 ```text
-main
- │
- ├── feature/docker
- ├── feature/crs
- ├── feature/ml-waf
- ├── feature/bypass
- └── feature/experiments
+main (stable)
+  │
+  └── dev (tích hợp)
+        │
+        ├── feature/docker      → Hoàng Minh Hiếu
+        ├── feature/crs         → Châu Gia Huy
+        ├── feature/ml-waf      → Đặng Văn Hoàng
+        ├── feature/bypass      → Lê Đình Long
+        └── feature/experiments → Huỳnh Như Hoàng
 ```
 
 Quy trình:
@@ -690,24 +716,23 @@ Feature Branch
    Commit
       │
       ▼
-Pull Request
+Pull Request (vào dev)
       │
       ▼
-Review / Test
+Review (>=1 thành viên) + Smoke-test
       │
       ▼
-   main
+dev → main (khi stable)
 ```
 
 ### Quy tắc
 
-- Không push trực tiếp vào `main`.
-- Mỗi module nên được phát triển trên feature branch.
-- Pull Request được review trước khi merge.
-- Không commit secret, credential hoặc dữ liệu nhạy cảm.
-- Không commit dataset hoặc log chứa thông tin nhạy cảm.
+- Không push trực tiếp vào `main` / `dev`. Mọi thay đổi qua PR + review.
+- Mỗi PR tối thiểu qua smoke-test: web-app trả 200, WAF chặn payload SQLi mẫu (403), ML-WAF trả nhãn, runner script output đúng schema CSV/JSON.
+- Thay đổi chung (docker-compose, schema test-case, định dạng log/API) phải qua review nhóm. Cấm edit chồng lấp sai thư mục sở hữu (xem bảng Phân công nhóm).
+- Không commit secret/credential. Không commit dataset raw, logs, model binaries (đã cấu hình `.gitignore`).
 - Experiment phải có cách tái lập rõ ràng.
-- Commit message nên mô tả rõ thay đổi.
+- Commit message mô tả rõ thay đổi.
 
 ---
 
