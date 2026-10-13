@@ -1,0 +1,10 @@
+# T03 — waf-ml requirements
+# Stub Phase 1 (Hiếu dựng để compose healthy).
+# Hoàng ML sẽ thêm model joblib + TF-IDF pipeline ở Tuần 05-06.
+fastapi==0.142.2
+uvicorn[standard]==0.34.0
+scikit-learn==1.7.1
+numpy==1.26.4
+scipy==1.13.1
+pandas==2.2.3
+joblib==1.4.2

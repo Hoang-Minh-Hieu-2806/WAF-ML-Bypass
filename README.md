@@ -168,7 +168,7 @@ Các kỹ thuật được nghiên cứu trong môi trường lab do nhóm kiể
                     │                           │
                     ▼                           ▼
           ┌───────────────────┐       ┌─────────────────────┐
-          │   MySQL 8.0 (db)  │       │       Logs          │
+           │   MySQL 8.4 LTS (db)  │       │       Logs          │
           │  db:3306, nội bộ  │       │ WAF + Application   │
           │  webnet, không    │       └─────────────────────┘
           │  expose ra host   │
@@ -436,7 +436,7 @@ WAF-ML-Bypass/
 | `dataset/bypass/double-encoding/` | Test cases Double Encoding | Bypass Research |
 | `dataset/bypass/case-comment/` | Test cases Case Variation + SQL Comment | Bypass Research |
 | `dataset/bypass/parsing-discrepancy/` | Test cases Parsing Discrepancy | Bypass Research |
-| `docker/` + `docker-compose.yml` | Deployment 4 service web-app / waf-crs / waf-ml / db (mysql:8.0) | Architecture & Integration |
+| `docker/` + `docker-compose.yml` | Deployment 4 service web-app / waf-crs / waf-ml / db (mysql:8.4 LTS) | Architecture & Integration |
 | `docker/db/init/` | Schema + seed MySQL (`01-schema.sql`, `02-seed.sql`, track trong git) | Architecture & Integration |
 | `.env.example` | Mẫu biến môi trường (`DB_PASS`, `DATABASE_URL`) | Architecture & Integration |
 | `docker/waf-crs/` | Docker configuration/runtime setup cho ModSecurity + CRS | WAF Signature |
@@ -500,7 +500,7 @@ và thuận tiện cho việc quản lý container độc lập.
 - ModSecurity
 - OWASP Core Rule Set
 - Python
-- MySQL 8.0 (service `db`, chỉ nội bộ `webnet`, volume `mysql-data` bị ignore)
+- MySQL 8.4 LTS (service `db`, chỉ nội bộ `webnet`, volume `mysql-data` bị ignore; `8.0.x` đã EOL 4/2026 nên lab dùng `8.4`)
 - PyMySQL (Web App kết nối qua `DATABASE_URL=mysql://root:${DB_PASS}@db:3306/waf_lab`)
 - Git
 - GitHub
@@ -555,6 +555,8 @@ docker compose ps
 # Smoke test (request hợp lệ)
 curl -i "http://localhost:8080/search?q=test"
 curl -i "http://localhost:8081/search?q=test"
+curl -s http://localhost:8082/health
+curl -s -X POST http://localhost:8082/score -H 'Content-Type: application/json' -d '{"text":"test"}'
 
 # Kiểm tra DB (thay <DB_PASS> bằng giá trị trong .env của bạn)
 docker compose exec db mysql -uroot -p"<DB_PASS>" -e "SELECT * FROM waf_lab.users;"
@@ -719,7 +721,7 @@ Tuần 12: Hardening & Báo cáo
 
 | Thành viên | Trách nhiệm chính | Files / Modules đảm nhận | Nhiệm vụ cụ thể (Checklist) |
 |---|---|---|---|
-| **Hoàng Minh Hiếu** | Kiến trúc & Tích hợp tổng thể | `docker/`, `docker-compose.yml`, `docker/db/`, `.env.example`, `scripts/` | - Thiết kế Docker Compose 4 service **web-app, waf-crs, waf-ml, db (mysql:8.0)**; <br> - Đảm bảo network & port không trùng, DB chỉ nội bộ `webnet`; <br> - Quản lý `docker/db/init/*.sql` + `.env.example` (`DB_PASS`, `DATABASE_URL`); <br> - Cài đặt giao thức nội bộ giữa các container; <br> - Viết tài liệu hướng dẫn chạy lab (Quick Start). |
+| **Hoàng Minh Hiếu** | Kiến trúc & Tích hợp tổng thể | `docker/`, `docker-compose.yml`, `docker/db/`, `.env.example`, `docs/` (chốt interface; `scripts/` do Automation & Evaluation implement) | - Thiết kế Docker Compose 4 service **web-app, waf-crs, waf-ml, db (mysql:8.4 LTS)**; <br> - Đảm bảo network & port không trùng, DB chỉ nội bộ `webnet`; <br> - Quản lý `docker/db/init/*.sql` + `.env.example` (`DB_PASS`, `DATABASE_URL`); <br> - Cài đặt giao thức nội bộ giữa các container; <br> - Viết tài liệu hướng dẫn chạy lab (Quick Start). |
 | **Châu Gia Huy** | WAF Signature (ModSecurity + CRS) | `waf-crs/`, `docker/waf-crs/` | - Cài đặt ModSecurity 3.x + OWASP CRS mới nhất; <br> - Cấu hình blocking + audit log chi tiết; <br> - Kiểm tra rule SQLi mẫu (phải bị chặn 403); <br> - Thiết lập 3 mức Paranoia Level và so sánh sơ bộ. |
 | **Đặng Văn Hoàng** | Machine-Learning WAF | `waf-ml/`, `docker/waf-ml/`, `dataset/` | - Chuẩn bị dataset labeled (SQLi, XSS, benign); <br> - Tiền xử lý (tokenize, vectorize TF-IDF/BOW); <br> - Huấn luyện baseline (Logistic Regression / SVM); <br> - Cung cấp API Flask/FastAPI `{label, score}`; <br> - Quản lý phiên bản model. |
 | **Lê Đình Long** | Bypass Research (Payloads) | `dataset/bypass/`, `experiments/` | - Xây test-case cho 4 kỹ thuật (HPP, double-encoding, case/comment, parsing-discrepancy) theo schema thống nhất; <br> - Phát triển payload ví dụ và đối chứng; <br> - Phân tích khác biệt parser WAF vs App; <br> - Soạn tài liệu kỹ thuật từng kỹ thuật. |
