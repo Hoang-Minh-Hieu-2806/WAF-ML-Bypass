@@ -151,14 +151,22 @@ Các kỹ thuật được nghiên cứu trong môi trường lab do nhóm kiể
                        ┌─────────────────────┐
                        │      Web App        │
                        │   Controlled Target │
+                       │   Flask + PyMySQL   │
                        └──────────┬──────────┘
                                   │
-                                  ▼
-                       ┌─────────────────────┐
-                       │       Logs          │
-                       │ WAF + Application   │
-                       └─────────────────────┘
+                    ┌─────────────┴─────────────┐
+                    │                           │
+                    ▼                           ▼
+          ┌───────────────────┐       ┌─────────────────────┐
+          │   MySQL 8.0 (db)  │       │       Logs          │
+          │  db:3306, nội bộ  │       │ WAF + Application   │
+          │  webnet, không    │       └─────────────────────┘
+          │  expose ra host   │
+          └───────────────────┘
 ```
+
+> **MySQL-first:** Web App kết nối qua `DATABASE_URL=mysql://root:${DB_PASS}@db:3306/waf_lab`. Schema/seed track ở `docker/db/init/`, runtime `mysql-data` volume bị ignore. DB chỉ listen nội bộ `webnet`.
+
 
 ---
 
@@ -350,12 +358,17 @@ WAF-ML-Bypass/
 │           └── .gitkeep
 │
 ├── docker/
+│   ├── db/init/
+│   │   ├── 01-schema.sql
+│   │   └── 02-seed.sql
 │   ├── waf-crs/
 │   │   └── .gitkeep
 │   ├── waf-ml/
 │   │   └── .gitkeep
 │   └── web-app/
 │       └── .gitkeep
+│
+├── .env.example
 │
 ├── docs/
 │   └── .gitkeep
@@ -413,7 +426,9 @@ WAF-ML-Bypass/
 | `dataset/bypass/double-encoding/` | Test cases Double Encoding | Lê Đình Long |
 | `dataset/bypass/case-comment/` | Test cases Case Variation + SQL Comment | Lê Đình Long |
 | `dataset/bypass/parsing-discrepancy/` | Test cases Parsing Discrepancy | Lê Đình Long |
-| `docker/` + `docker-compose.yml` | Deployment 3 service web-app / waf-crs / waf-ml | Hoàng Minh Hiếu |
+| `docker/` + `docker-compose.yml` | Deployment 4 service web-app / waf-crs / waf-ml / db (mysql:8.0) | Hoàng Minh Hiếu |
+| `docker/db/init/` | Schema + seed MySQL (`01-schema.sql`, `02-seed.sql`, track trong git) | Hoàng Minh Hiếu |
+| `.env.example` | Mẫu biến môi trường (`DB_PASS`, `DATABASE_URL`) | Hoàng Minh Hiếu |
 | `docker/waf-crs/` | Docker configuration/runtime setup cho ModSecurity + CRS | Châu Gia Huy |
 | `docker/waf-ml/` | Docker configuration/runtime setup cho ML-WAF | Đặng Văn Hoàng (+ Hoàng Minh Hiếu tích hợp) |
 | `docker/web-app/` | Docker configuration/runtime setup cho web application | Hoàng Minh Hiếu |
@@ -442,14 +457,17 @@ Repository tách **deployment configuration** và **module implementation**:
 ```text
 docker/
     │
+    ├── db/init/         → Schema + seed MySQL (track, init lúc db start)
     ├── waf-crs/       → Cách chạy WAF bằng Docker
     ├── waf-ml/        → Cách chạy ML-WAF bằng Docker
-    └── web-app/       → Cách chạy web app bằng Docker
+    └── web-app/       → Cách chạy web app bằng Docker (Flask + PyMySQL -> db:3306)
 
 waf-crs/               → Configuration / customization của CRS
 waf-ml/                → Source code của ML-WAF
 web-app/               → Source code của web application
 ```
+
+> Runtime `mysql-data` volume và `.env` local bị ignore. Chỉ `docker/db/init/*.sql` + `.env.example` được commit.
 
 Cách tổ chức này giúp tách:
 
@@ -472,6 +490,8 @@ và thuận tiện cho việc quản lý container độc lập.
 - ModSecurity
 - OWASP Core Rule Set
 - Python
+- MySQL 8.0 (service `db`, chỉ nội bộ `webnet`, volume `mysql-data` bị ignore)
+- PyMySQL (Web App kết nối qua `DATABASE_URL=mysql://root:${DB_PASS}@db:3306/waf_lab`)
 - Git
 - GitHub
 
@@ -516,11 +536,19 @@ git clone <repository-url>
 # Enter project directory
 cd WAF-ML-Bypass
 
-# Start the lab
-docker compose up -d
+# Copy env mẫu (DB_PASS, DATABASE_URL) — file .env local bị ignore
+cp .env.example .env
 
-# Check running containers
+# Start the lab (4 service: web-app, waf-crs, waf-ml, db)
+docker compose up -d --build
+
+# Check running containers (expect waf-app, waf-crs, waf-ml, waf-db healthy)
 docker compose ps
+
+# Smoke test
+curl -i "http://localhost:8080/search?q=test"
+curl -i "http://localhost:8081/search?q=test"
+docker compose exec db mysql -uroot -p$DB_PASS -e "SELECT * FROM waf_lab.users;"
 
 # Run experiments
 # TBD
@@ -623,12 +651,12 @@ DOI:
 ```text
 Tuần 01–02: Tổng quan & Lab Docker
   - Nghiên cứu ModSecurity+CRS, ML-WAF, kỹ thuật bypass
-  - Thiết kế kiến trúc, schema test-case/result, repo + branch dev
-  - MILESTONE: docker compose up -d chạy 3 container trống, web-app :8080 trả 200
+  - Thiết kế kiến trúc Web App + MySQL, schema test-case/result, repo + branch dev
+  - MILESTONE: docker compose up -d --build chạy 4 container (waf-app, waf-crs, waf-ml, waf-db healthy), web-app :8080 trả 200
         │
         ▼
 Tuần 03–04: ModSecurity + CRS & Baseline
-  - Web App 3 endpoint (GET /search, GET /product, POST /login) + app.log
+  - Web App 3 endpoint (GET /search, GET /product, POST /login) + app.log, query MySQL waf_lab.users
   - ModSecurity v3 + OWASP CRS, blocking, audit log
   - Bộ baseline ≥10 case (5 benign / 5 malicious), tính Detection & FPR
   - MILESTONE: SQLi mẫu bị 403 + rule ID, benign được forward 200
@@ -679,7 +707,7 @@ Tuần 12: Hardening & Báo cáo
 
 | Thành viên | Trách nhiệm chính | Files / Modules đảm nhận | Nhiệm vụ cụ thể (Checklist) |
 |---|---|---|---|
-| **Hoàng Minh Hiếu** | Kiến trúc & Tích hợp tổng thể | `docker/`, `docker-compose.yml`, `scripts/` | - Thiết kế Docker Compose 3 service **web-app, waf-crs, waf-ml**; <br> - Đảm bảo network & port không trùng; <br> - Cài đặt giao thức nội bộ giữa các container; <br> - Viết tài liệu hướng dẫn chạy lab (Quick Start). |
+| **Hoàng Minh Hiếu** | Kiến trúc & Tích hợp tổng thể | `docker/`, `docker-compose.yml`, `docker/db/`, `.env.example`, `scripts/` | - Thiết kế Docker Compose 4 service **web-app, waf-crs, waf-ml, db (mysql:8.0)**; <br> - Đảm bảo network & port không trùng, DB chỉ nội bộ `webnet`; <br> - Quản lý `docker/db/init/*.sql` + `.env.example` (`DB_PASS`, `DATABASE_URL`); <br> - Cài đặt giao thức nội bộ giữa các container; <br> - Viết tài liệu hướng dẫn chạy lab (Quick Start). |
 | **Châu Gia Huy** | WAF Signature (ModSecurity + CRS) | `waf-crs/`, `docker/waf-crs/` | - Cài đặt ModSecurity 3.x + OWASP CRS mới nhất; <br> - Cấu hình blocking + audit log chi tiết; <br> - Kiểm tra rule SQLi mẫu (phải bị chặn 403); <br> - Thiết lập 3 mức Paranoia Level và so sánh sơ bộ. |
 | **Đặng Văn Hoàng** | Machine-Learning WAF | `waf-ml/`, `docker/waf-ml/`, `dataset/` | - Chuẩn bị dataset labeled (SQLi, XSS, benign); <br> - Tiền xử lý (tokenize, vectorize TF-IDF/BOW); <br> - Huấn luyện baseline (Logistic Regression / SVM); <br> - Cung cấp API Flask/FastAPI `{label, score}`; <br> - Quản lý phiên bản model. |
 | **Lê Đình Long** | Bypass Research (Payloads) | `dataset/bypass/`, `experiments/` | - Xây test-case cho 4 kỹ thuật (HPP, double-encoding, case/comment, parsing-discrepancy) theo schema thống nhất; <br> - Phát triển payload ví dụ và đối chứng; <br> - Phân tích khác biệt parser WAF vs App; <br> - Soạn tài liệu kỹ thuật từng kỹ thuật. |
