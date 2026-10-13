@@ -9,8 +9,15 @@
 ![Security](https://img.shields.io/badge/domain-Web%20Security-red)
 ![WAF](https://img.shields.io/badge/WAF-ModSecurity%20%7C%20ML-orange)
 ![Environment](https://img.shields.io/badge/environment-Docker-blue)
+![Ethics](https://img.shields.io/badge/research-ethical%20lab%20only-green)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 </p>
+
+> **Nghiên cứu phòng thủ, thực hiện 100% trên lab local.** Mọi payload trong repo chỉ dùng để
+> đánh giá WAF do nhóm tự dựng (Docker: Web App + MySQL + ModSecurity/CRS + ML-WAF).
+> Không kiểm thử hệ thống production, không tấn công hệ thống không được cấp phép.
+> Chi tiết xem [🔐 Ethical & Safety Scope](#-ethical--safety-scope) và [SECURITY.md](./SECURITY.md).
 
 ---
 
@@ -34,6 +41,9 @@
 - [🔐 Ethical & Safety Scope](#-ethical--safety-scope)
 - [🎓 Expected Deliverables](#-expected-deliverables)
 - [📌 Research Questions](#-research-questions)
+- [🧠 Kỹ năng thể hiện](#-kỹ-năng-thể-hiện)
+- [📬 Liên hệ](#-liên-hệ)
+- [📄 Giấy phép](#-giấy-phép)
 - [🚧 Project Status](#-project-status)
 
 ---
@@ -417,36 +427,36 @@ WAF-ML-Bypass/
 
 ### Vai trò các thư mục
 
-| Directory | Vai trò | Phụ trách chính |
+| Directory | Vai trò | Vai trò phụ trách (xem bảng 👥 Phân công nhóm) |
 |---|---|---|
-| `dataset/raw/` | Dataset gốc chưa xử lý | Đặng Văn Hoàng |
-| `dataset/processed/` | Dataset sau preprocessing | Đặng Văn Hoàng |
-| `dataset/bypass/` | Các test case phục vụ bypass experiments | Lê Đình Long |
-| `dataset/bypass/hpp/` | Test cases HPP / Fragmentation | Lê Đình Long |
-| `dataset/bypass/double-encoding/` | Test cases Double Encoding | Lê Đình Long |
-| `dataset/bypass/case-comment/` | Test cases Case Variation + SQL Comment | Lê Đình Long |
-| `dataset/bypass/parsing-discrepancy/` | Test cases Parsing Discrepancy | Lê Đình Long |
-| `docker/` + `docker-compose.yml` | Deployment 4 service web-app / waf-crs / waf-ml / db (mysql:8.0) | Hoàng Minh Hiếu |
-| `docker/db/init/` | Schema + seed MySQL (`01-schema.sql`, `02-seed.sql`, track trong git) | Hoàng Minh Hiếu |
-| `.env.example` | Mẫu biến môi trường (`DB_PASS`, `DATABASE_URL`) | Hoàng Minh Hiếu |
-| `docker/waf-crs/` | Docker configuration/runtime setup cho ModSecurity + CRS | Châu Gia Huy |
-| `docker/waf-ml/` | Docker configuration/runtime setup cho ML-WAF | Đặng Văn Hoàng (+ Hoàng Minh Hiếu tích hợp) |
-| `docker/web-app/` | Docker configuration/runtime setup cho web application | Hoàng Minh Hiếu |
-| `waf-crs/` | Configuration, rule customization và tài liệu riêng của CRS WAF | Châu Gia Huy |
-| `waf-ml/` | Source code và configuration của ML-WAF | Đặng Văn Hoàng |
-| `web-app/` | Source code của web application mục tiêu trong lab | Hoàng Minh Hiếu |
-| `experiments/` | Tổ chức các experiment theo từng nhóm | Lê Đình Long + Huỳnh Như Hoàng |
-| `experiments/baseline/` | Baseline testing trước khi mutation | Châu Gia Huy + Huỳnh Như Hoàng |
-| `experiments/hpp/` | Experiment HPP / Fragmentation | Lê Đình Long |
-| `experiments/double-encoding/` | Experiment Double Encoding | Lê Đình Long |
-| `experiments/case-comment/` | Experiment Case Variation + SQL Comment | Lê Đình Long |
-| `experiments/parsing-discrepancy/` | Experiment Parsing Discrepancy | Lê Đình Long |
-| `scripts/` | Script tự động hóa testing và data processing | Huỳnh Như Hoàng (+ Hoàng Minh Hiếu giao thức nội bộ) |
-| `logs/waf/` | Log từ WAF | Châu Gia Huy / Đặng Văn Hoàng |
-| `logs/application/` | Log từ web application | Hoàng Minh Hiếu |
-| `results/raw/` | Kết quả thô từ experiments | Huỳnh Như Hoàng |
-| `results/tables/` | Bảng kết quả đã tổng hợp | Huỳnh Như Hoàng |
-| `results/graphs/` | Biểu đồ và visualization | Huỳnh Như Hoàng |
+| `dataset/raw/` | Dataset gốc chưa xử lý | ML Engineer |
+| `dataset/processed/` | Dataset sau preprocessing | ML Engineer |
+| `dataset/bypass/` | Các test case phục vụ bypass experiments | Bypass Research |
+| `dataset/bypass/hpp/` | Test cases HPP / Fragmentation | Bypass Research |
+| `dataset/bypass/double-encoding/` | Test cases Double Encoding | Bypass Research |
+| `dataset/bypass/case-comment/` | Test cases Case Variation + SQL Comment | Bypass Research |
+| `dataset/bypass/parsing-discrepancy/` | Test cases Parsing Discrepancy | Bypass Research |
+| `docker/` + `docker-compose.yml` | Deployment 4 service web-app / waf-crs / waf-ml / db (mysql:8.0) | Architecture & Integration |
+| `docker/db/init/` | Schema + seed MySQL (`01-schema.sql`, `02-seed.sql`, track trong git) | Architecture & Integration |
+| `.env.example` | Mẫu biến môi trường (`DB_PASS`, `DATABASE_URL`) | Architecture & Integration |
+| `docker/waf-crs/` | Docker configuration/runtime setup cho ModSecurity + CRS | WAF Signature |
+| `docker/waf-ml/` | Docker configuration/runtime setup cho ML-WAF | ML Engineer (+ Architecture tích hợp) |
+| `docker/web-app/` | Docker configuration/runtime setup cho web application | Architecture & Integration |
+| `waf-crs/` | Configuration, rule customization và tài liệu riêng của CRS WAF | WAF Signature |
+| `waf-ml/` | Source code và configuration của ML-WAF | ML Engineer |
+| `web-app/` | Source code của web application mục tiêu trong lab | Architecture & Integration |
+| `experiments/` | Tổ chức các experiment theo từng nhóm | Bypass Research + Automation & Evaluation |
+| `experiments/baseline/` | Baseline testing trước khi mutation | WAF Signature + Automation & Evaluation |
+| `experiments/hpp/` | Experiment HPP / Fragmentation | Bypass Research |
+| `experiments/double-encoding/` | Experiment Double Encoding | Bypass Research |
+| `experiments/case-comment/` | Experiment Case Variation + SQL Comment | Bypass Research |
+| `experiments/parsing-discrepancy/` | Experiment Parsing Discrepancy | Bypass Research |
+| `scripts/` | Script tự động hóa testing và data processing | Automation & Evaluation |
+| `logs/waf/` | Log từ WAF (runtime, không commit) | WAF Signature / ML Engineer |
+| `logs/application/` | Log từ web application (runtime, không commit) | Architecture & Integration |
+| `results/raw/` | Kết quả thô từ experiments (runtime, không commit) | Automation & Evaluation |
+| `results/tables/` | Bảng kết quả đã tổng hợp | Automation & Evaluation |
+| `results/graphs/` | Biểu đồ và visualization | Automation & Evaluation |
 | `docs/` | Technical documentation và research notes | Tất cả (mỗi module ≥1 file .md) |
 | `report/` | Tài liệu phục vụ báo cáo cuối kỳ | Tất cả (theo phần trách nhiệm) |
 
@@ -523,11 +533,8 @@ Mô hình cụ thể sẽ được lựa chọn sau khi đánh giá dataset và 
 
 ## 🚀 Quick Start
 
-> **Status: Planned**
-
-Quick Start sẽ được hoàn thiện sau khi Docker lab được triển khai.
-
-Dự kiến quy trình:
+> **Chỉ chạy trên lab local.** Không trỏ lab tới hệ thống production.
+> Không commit file `.env` (chứa `DB_PASS` thật). Chỉ commit `.env.example` với giá trị mẫu.
 
 ```bash
 # Clone repository
@@ -536,7 +543,7 @@ git clone <repository-url>
 # Enter project directory
 cd WAF-ML-Bypass
 
-# Copy env mẫu (DB_PASS, DATABASE_URL) — file .env local bị ignore
+# Copy env mẫu rồi đổi DB_PASS thành giá trị riêng (không dùng default cho dữ liệu thật)
 cp .env.example .env
 
 # Start the lab (4 service: web-app, waf-crs, waf-ml, db)
@@ -545,10 +552,12 @@ docker compose up -d --build
 # Check running containers (expect waf-app, waf-crs, waf-ml, waf-db healthy)
 docker compose ps
 
-# Smoke test
+# Smoke test (request hợp lệ)
 curl -i "http://localhost:8080/search?q=test"
 curl -i "http://localhost:8081/search?q=test"
-docker compose exec db mysql -uroot -p$DB_PASS -e "SELECT * FROM waf_lab.users;"
+
+# Kiểm tra DB (thay <DB_PASS> bằng giá trị trong .env của bạn)
+docker compose exec db mysql -uroot -p"<DB_PASS>" -e "SELECT * FROM waf_lab.users;"
 
 # Run experiments
 # TBD
@@ -646,7 +655,7 @@ DOI:
 
 ## 🗓️ Project Roadmap
 
-Đồ án triển khai trong **12 tuần (09/10/2026 → 12 tuần, triển khai lặp)**, theo `Kế hoạch thực thi đồ án.md`.
+Đồ án triển khai trong **12 tuần (triển khai lặp)**, theo kế hoạch nội bộ của nhóm.
 
 ```text
 Tuần 01–02: Tổng quan & Lab Docker
@@ -705,6 +714,9 @@ Tuần 12: Hardening & Báo cáo
 
 **Đội dự án**: 5 thành viên — Hoàng Minh Hiếu, Châu Gia Huy, Đặng Văn Hoàng, Lê Đình Long, Huỳnh Như Hoàng.
 
+> Danh sách dưới đây là phân công vai trò công khai cho mục đích học thuật/CV.
+> Không đăng tải MSSV, email, số điện thoại hoặc thông tin cá nhân khác trong repo công khai.
+
 | Thành viên | Trách nhiệm chính | Files / Modules đảm nhận | Nhiệm vụ cụ thể (Checklist) |
 |---|---|---|---|
 | **Hoàng Minh Hiếu** | Kiến trúc & Tích hợp tổng thể | `docker/`, `docker-compose.yml`, `docker/db/`, `.env.example`, `scripts/` | - Thiết kế Docker Compose 4 service **web-app, waf-crs, waf-ml, db (mysql:8.0)**; <br> - Đảm bảo network & port không trùng, DB chỉ nội bộ `webnet`; <br> - Quản lý `docker/db/init/*.sql` + `.env.example` (`DB_PASS`, `DATABASE_URL`); <br> - Cài đặt giao thức nội bộ giữa các container; <br> - Viết tài liệu hướng dẫn chạy lab (Quick Start). |
@@ -728,12 +740,14 @@ main (stable)
   │
   └── dev (tích hợp)
         │
-        ├── feature/docker      → Hoàng Minh Hiếu
-        ├── feature/crs         → Châu Gia Huy
-        ├── feature/ml-waf      → Đặng Văn Hoàng
-        ├── feature/bypass      → Lê Đình Long
-        └── feature/experiments → Huỳnh Như Hoàng
+        ├── feature/docker
+        ├── feature/crs
+        ├── feature/ml-waf
+        ├── feature/bypass
+        └── feature/experiments
 ```
+
+> Chi tiết ai phụ trách branch nào xem bảng [👥 Phân công nhóm](#-phân-công-nhóm). Bảng trên chỉ nêu quy ước đặt tên branch.
 
 Quy trình:
 
@@ -915,6 +929,33 @@ Conclusion
 ### RQ5
 
 **What are the fundamental reasons behind successful bypasses?**
+
+---
+
+## 🧠 Kỹ năng thể hiện
+
+Repository này thể hiện các kỹ năng phục vụ CV:
+
+- Triển khai lab bảo mật bằng **Docker / Docker Compose** (multi-service, network nội bộ, healthcheck).
+- Cấu hình **ModSecurity + OWASP CRS** (blocking, audit log, Paranoia Level).
+- Xây dựng Web App **Flask + PyMySQL** có logging đối chiếu WAF log vs App log.
+- Pipeline ML cơ bản: **TF-IDF + Logistic Regression/SVM (scikit-learn)**, đánh giá Precision/Recall/F1, chống data leakage.
+- Tự động hóa thực nghiệm bằng Python, tổng hợp CSV/JSON và trực quan hóa kết quả.
+
+---
+
+## 📬 Liên hệ
+
+- Nhóm thực hiện 5 thành viên, xem chi tiết ở [👥 Phân công nhóm](#-phân-công-nhóm).
+- Trao đổi chuyên môn qua GitHub Issues của repository này.
+- Vui lòng không gửi credential, dữ liệu cá nhân hoặc log production qua kênh công khai.
+
+---
+
+## 📄 Giấy phép
+
+- Mã nguồn: [MIT License](./LICENSE).
+- Chính sách bảo mật và phạm vi nghiên cứu có trách nhiệm: [SECURITY.md](./SECURITY.md).
 
 ---
 
