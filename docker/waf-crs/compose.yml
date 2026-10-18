@@ -1,0 +1,54 @@
+name: waf-crs-lab
+services:
+  crs-test-backend:
+    build:
+      context: ../..
+      dockerfile: docker/waf-crs/Dockerfile.backend
+    ports:
+      - "127.0.0.1:${CRS_BACKEND_PORT:-18080}:8080"
+    volumes:
+      - ../../logs/application/crs:/evidence
+    networks: [lab]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  waf-crs:
+    build:
+      context: ../..
+      dockerfile: docker/waf-crs/Dockerfile
+    ports:
+      - "127.0.0.1:${CRS_PORT:-18081}:8080"
+    environment:
+      BACKEND: http://crs-test-backend:8080
+      PORT: "8080"
+      SERVER_NAME: localhost
+      MODSEC_RULE_ENGINE: "On"
+      MODSEC_REQ_BODY_ACCESS: "On"
+      MODSEC_RESP_BODY_ACCESS: "Off"
+      MODSEC_AUDIT_ENGINE: "On"
+      MODSEC_AUDIT_LOG_TYPE: Serial
+      MODSEC_AUDIT_LOG_FORMAT: JSON
+      MODSEC_AUDIT_LOG_PARTS: ABIJDEFHZ
+      MODSEC_AUDIT_LOG: /var/log/crs-lab/audit.log
+      BLOCKING_PARANOIA: "${CRS_PL:-1}"
+      DETECTION_PARANOIA: "${CRS_PL:-1}"
+      ANOMALY_INBOUND: "5"
+      ANOMALY_OUTBOUND: "4"
+      CRS_DISABLE_PLUGINS: "1"
+      NGINX_WORKER_PROCESSES: "1"
+    volumes:
+      - ../../logs/waf/crs:/var/log/crs-lab
+    depends_on:
+      crs-test-backend:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, http://127.0.0.1:8080/healthz]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks: [lab]
+networks:
+  lab:
+    driver: bridge

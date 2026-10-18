@@ -503,9 +503,22 @@ Mô hình cụ thể sẽ được lựa chọn sau khi đánh giá dataset và 
 
 ## 🚀 Quick Start
 
-> **Status: Planned**
+> **Status:** Module CRS đã có lab riêng và baseline PL1–PL3 được kiểm chứng.
+> Lab tích hợp đầy đủ (web-app + CRS + ML) vẫn đang trong kế hoạch.
 
-Quick Start sẽ được hoàn thiện sau khi Docker lab được triển khai.
+Chạy module của **Châu Gia Huy — ModSecurity + OWASP CRS** từ thư mục gốc repo:
+
+```powershell
+python -m unittest discover -s waf-crs -p test_baseline.py -v
+python waf-crs/run_baseline.py
+```
+
+Runner khởi động lab tại `http://localhost:18081`, kiểm chứng SQLi bằng backend
+fixture riêng và lưu audit/app logs cùng CSV/JSON. Xem
+[hướng dẫn và định nghĩa metric](docs/waf-crs.md) và
+[kết quả baseline đã quan sát](report/waf-crs-baseline.md).
+
+Quick Start cho lab tích hợp sẽ được hoàn thiện sau khi các module được ghép lại.
 
 Dự kiến quy trình:
 

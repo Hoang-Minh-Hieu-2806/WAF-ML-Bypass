@@ -1,0 +1,15 @@
+[
+  {"id":"BEN-001","technique":"baseline","label":"benign","request":{"method":"GET","path":"/search","params":[["q","laptop"]]},"expected":{"waf":"allow","app":"normal"}},
+  {"id":"BEN-002","technique":"baseline","label":"benign","request":{"method":"GET","path":"/product","params":[["id","2"]]},"expected":{"waf":"allow","app":"normal"}},
+  {"id":"BEN-003","technique":"baseline","label":"benign","request":{"method":"POST","path":"/login","form":[["username","student"],["password","lab-only"]]},"expected":{"waf":"allow","app":"normal"}},
+  {"id":"BEN-004","technique":"baseline","label":"benign","request":{"method":"GET","path":"/search","params":[["q","màn hình"]]},"expected":{"waf":"allow","app":"normal"}},
+  {"id":"BEN-005","technique":"baseline","label":"benign","request":{"method":"GET","path":"/search","params":[["q","USB-C cable"]]},"expected":{"waf":"allow","app":"normal"}},
+  {"id":"BEN-006","technique":"baseline","label":"benign","request":{"method":"GET","path":"/search","params":[["q","laptop"],["notes","O'Reilly book"]]},"expected":{"waf":"allow","app":"normal"}},
+  {"id":"BEN-007","technique":"baseline","label":"benign","request":{"method":"GET","path":"/search","params":[["q","laptop"],["notes","price < 100 & stock > 0"]]},"expected":{"waf":"allow","app":"normal"}},
+  {"id":"BEN-008","technique":"baseline","label":"benign","request":{"method":"GET","path":"/search","params":[["q","C++ (beginner)"]]},"expected":{"waf":"allow","app":"normal"}},
+  {"id":"SQLI-001","technique":"baseline","label":"malicious","request":{"method":"GET","path":"/search","params":[["q","' OR 1=1 -- "]]},"expected":{"waf":"block","app":"all_products"}},
+  {"id":"SQLI-002","technique":"baseline","label":"malicious","request":{"method":"GET","path":"/product","params":[["id","1 OR 1=1"]]},"expected":{"waf":"block","app":"all_products"}},
+  {"id":"SQLI-003","technique":"baseline","label":"malicious","request":{"method":"GET","path":"/product","params":[["id","-1 UNION SELECT id,name FROM products"]]},"expected":{"waf":"block","app":"all_products"}},
+  {"id":"SQLI-004","technique":"baseline","label":"malicious","request":{"method":"POST","path":"/login","form":[["username","' OR 1=1 -- "],["password","wrong"]]},"expected":{"waf":"block","app":"auth_bypass"}},
+  {"id":"SQLI-005","technique":"baseline","label":"malicious","request":{"method":"GET","path":"/search","params":[["q","' OR 'a'='a' -- "]]},"expected":{"waf":"block","app":"all_products"}}
+]
