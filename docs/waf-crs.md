@@ -179,3 +179,14 @@ Triển khai trên `feature/crs`; cần thành viên khác review trước khi t
 
 - [Official CRS Docker images, environment variables và proxy configuration](https://github.com/coreruleset/modsecurity-crs-docker)
 - [CRS Paranoia Levels](https://coreruleset.org/docs/2-how-crs-works/2-2-paranoia_levels/)
+
+## Sau khi tích hợp feature/docker
+
+Root Compose chạy backend Flask/PyMySQL/MySQL với cùng image CRS ghim digest,
+blocking và JSON audit. Đọc [Quick Start](quickstart-lab.md) và
+[architecture](architecture.md). Lab SQLite/corpus/runner trên đây vẫn độc lập,
+không thay thế bằng backend mới và không trộn raw evidence.
+
+Smoke runner riêng: `python waf-crs/run_integrated_smoke.py`, mặc định PL1,
+corpus 6 case, output `results/raw/crs-integrated/`; nó không dùng
+`results/raw/crs/` hoặc ghi lại các run cũ.

@@ -1,0 +1,131 @@
+# =============================================================================
+# T03 — ML-based WAF & Evasion Techniques
+# Lab local 4 service: web-app (Flask) + waf-crs (ModSecurity+CRS) +
+#                      waf-ml (FastAPI stub) + db (mysql:8.4 LTS)
+# Owner deployment: Hoàng Minh Hiếu (feature/docker)
+# Rule/model thuộc về Huy (waf-crs/) và Hoàng (waf-ml/) — không sửa trong file này
+# khi chưa review nhóm.
+# Usage:
+#   cp .env.example .env
+#   docker compose up -d --build
+#   docker compose ps            # expect 4 healthy/up
+#   curl -i "http://localhost:8080/search?q=test"
+#   curl -i "http://localhost:8081/search?q=test"
+# =============================================================================
+
+services:
+  db:
+    image: mysql:8.4
+    container_name: waf-db
+    env_file: .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASS}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-waf_lab}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/db/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - webnet
+    # Không expose 3306 ra host — chỉ nội bộ webnet.
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  web-app:
+    build:
+      context: .
+      dockerfile: docker/web-app/Dockerfile
+    container_name: waf-app
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      PORT: "5000"
+      APP_LOG: /evidence/app.jsonl
+    volumes:
+      - ./logs/application/integrated:/evidence
+    ports:
+      - "127.0.0.1:${WEBAPP_PORT:-8080}:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - webnet
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/healthz')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  waf-crs:
+    build:
+      context: .
+      dockerfile: docker/waf-crs/Dockerfile
+    container_name: waf-crs
+    volumes:
+      - ./logs/waf/integrated:/var/log/crs-integrated
+    env_file: .env
+    environment:
+      BACKEND: http://web-app:5000
+      PORT: "8080"
+      SERVER_NAME: localhost
+      BLOCKING_PARANOIA: "${CRS_PL:-${PARANOIA:-1}}"
+      DETECTION_PARANOIA: "${CRS_PL:-${PARANOIA:-1}}"
+      MODSEC_RULE_ENGINE: ${MODSEC_RULE_ENGINE:-On}
+      MODSEC_REQ_BODY_ACCESS: "On"
+      MODSEC_RESP_BODY_ACCESS: "Off"
+      MODSEC_AUDIT_ENGINE: "On"
+      MODSEC_AUDIT_LOG_TYPE: Serial
+      MODSEC_AUDIT_LOG_FORMAT: JSON
+      MODSEC_AUDIT_LOG_PARTS: ABIJDEFHZ
+      MODSEC_AUDIT_LOG: /var/log/crs-integrated/audit.log
+      CRS_DISABLE_PLUGINS: "1"
+      NGINX_WORKER_PROCESSES: "1"
+      ANOMALY_INBOUND: "5"
+      ALLOWED_METHODS: "GET HEAD POST OPTIONS"
+    ports:
+      - "127.0.0.1:${WAF_CRS_PORT:-8081}:8080"
+    depends_on:
+      web-app:
+        condition: service_healthy
+    networks:
+      - webnet
+    healthcheck:
+      # Kiểm tra DB qua backend; endpoint không mang input SQL để không nhiễu PL3.
+      # NOTE: image owasp/modsecurity-crs:nginx listen 8080 (không phải 80).
+      test: ["CMD-SHELL", "curl -fsS 'http://localhost:8080/healthz' -H 'Host: localhost' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  waf-ml:
+    build:
+      context: .
+      dockerfile: docker/waf-ml/Dockerfile
+    container_name: waf-ml
+    env_file: .env
+    environment:
+      MODEL_VERSION: ${MODEL_VERSION:-stub-0.1}
+      PORT: "5001"
+    ports:
+      - "127.0.0.1:${WAF_ML_PORT:-8082}:5001"
+    networks:
+      - webnet
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5001/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+networks:
+  webnet:
+    name: waf-lab-webnet
+
+volumes:
+  mysql-data:
+    name: waf-lab-mysql-data

@@ -9,8 +9,15 @@
 ![Security](https://img.shields.io/badge/domain-Web%20Security-red)
 ![WAF](https://img.shields.io/badge/WAF-ModSecurity%20%7C%20ML-orange)
 ![Environment](https://img.shields.io/badge/environment-Docker-blue)
+![Ethics](https://img.shields.io/badge/research-ethical%20lab%20only-green)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 </p>
+
+> **Nghiên cứu phòng thủ, thực hiện 100% trên lab local.** Mọi payload trong repo chỉ dùng để
+> đánh giá WAF do nhóm tự dựng (Docker: Web App + MySQL + ModSecurity/CRS + ML-WAF).
+> Không kiểm thử hệ thống production, không tấn công hệ thống không được cấp phép.
+> Chi tiết xem [🔐 Ethical & Safety Scope](#-ethical--safety-scope) và [SECURITY.md](./SECURITY.md).
 
 ---
 
@@ -34,6 +41,9 @@
 - [🔐 Ethical & Safety Scope](#-ethical--safety-scope)
 - [🎓 Expected Deliverables](#-expected-deliverables)
 - [📌 Research Questions](#-research-questions)
+- [🧠 Kỹ năng thể hiện](#-kỹ-năng-thể-hiện)
+- [📬 Liên hệ](#-liên-hệ)
+- [📄 Giấy phép](#-giấy-phép)
 - [🚧 Project Status](#-project-status)
 
 ---
@@ -151,14 +161,22 @@ Các kỹ thuật được nghiên cứu trong môi trường lab do nhóm kiể
                        ┌─────────────────────┐
                        │      Web App        │
                        │   Controlled Target │
+                       │   Flask + PyMySQL   │
                        └──────────┬──────────┘
                                   │
-                                  ▼
-                       ┌─────────────────────┐
-                       │       Logs          │
-                       │ WAF + Application   │
-                       └─────────────────────┘
+                    ┌─────────────┴─────────────┐
+                    │                           │
+                    ▼                           ▼
+          ┌───────────────────┐       ┌─────────────────────┐
+           │   MySQL 8.4 LTS (db)  │       │       Logs          │
+          │  db:3306, nội bộ  │       │ WAF + Application   │
+          │  webnet, không    │       └─────────────────────┘
+          │  expose ra host   │
+          └───────────────────┘
 ```
+
+> **MySQL-first:** Web App kết nối qua `DATABASE_URL=mysql://root:${DB_PASS}@db:3306/waf_lab`. Schema/seed track ở `docker/db/init/`, runtime `mysql-data` volume bị ignore. DB chỉ listen nội bộ `webnet`.
+
 
 ---
 
@@ -350,12 +368,17 @@ WAF-ML-Bypass/
 │           └── .gitkeep
 │
 ├── docker/
+│   ├── db/init/
+│   │   ├── 01-schema.sql
+│   │   └── 02-seed.sql
 │   ├── waf-crs/
 │   │   └── .gitkeep
 │   ├── waf-ml/
 │   │   └── .gitkeep
 │   └── web-app/
 │       └── .gitkeep
+│
+├── .env.example
 │
 ├── docs/
 │   └── .gitkeep
@@ -404,36 +427,38 @@ WAF-ML-Bypass/
 
 ### Vai trò các thư mục
 
-| Directory | Vai trò |
-|---|---|
-| `dataset/raw/` | Dataset gốc chưa xử lý |
-| `dataset/processed/` | Dataset sau preprocessing |
-| `dataset/bypass/` | Các test case phục vụ bypass experiments |
-| `dataset/bypass/hpp/` | Test cases HPP / Fragmentation |
-| `dataset/bypass/double-encoding/` | Test cases Double Encoding |
-| `dataset/bypass/case-comment/` | Test cases Case Variation + SQL Comment |
-| `dataset/bypass/parsing-discrepancy/` | Test cases Parsing Discrepancy |
-| `docker/` | Các file phục vụ deployment bằng Docker |
-| `docker/waf-crs/` | Docker configuration/runtime setup cho ModSecurity + CRS |
-| `docker/waf-ml/` | Docker configuration/runtime setup cho ML-WAF |
-| `docker/web-app/` | Docker configuration/runtime setup cho web application |
-| `waf-crs/` | Configuration, rule customization và tài liệu riêng của CRS WAF |
-| `waf-ml/` | Source code và configuration của ML-WAF |
-| `web-app/` | Source code của web application mục tiêu trong lab |
-| `experiments/` | Tổ chức các experiment theo từng nhóm |
-| `experiments/baseline/` | Baseline testing trước khi mutation |
-| `experiments/hpp/` | Experiment HPP / Fragmentation |
-| `experiments/double-encoding/` | Experiment Double Encoding |
-| `experiments/case-comment/` | Experiment Case Variation + SQL Comment |
-| `experiments/parsing-discrepancy/` | Experiment Parsing Discrepancy |
-| `scripts/` | Script tự động hóa testing và data processing |
-| `logs/waf/` | Log từ WAF |
-| `logs/application/` | Log từ web application |
-| `results/raw/` | Kết quả thô từ experiments |
-| `results/tables/` | Bảng kết quả đã tổng hợp |
-| `results/graphs/` | Biểu đồ và visualization |
-| `docs/` | Technical documentation và research notes |
-| `report/` | Tài liệu phục vụ báo cáo cuối kỳ |
+| Directory | Vai trò | Vai trò phụ trách (xem bảng 👥 Phân công nhóm) |
+|---|---|---|
+| `dataset/raw/` | Dataset gốc chưa xử lý | ML Engineer |
+| `dataset/processed/` | Dataset sau preprocessing | ML Engineer |
+| `dataset/bypass/` | Các test case phục vụ bypass experiments | Bypass Research |
+| `dataset/bypass/hpp/` | Test cases HPP / Fragmentation | Bypass Research |
+| `dataset/bypass/double-encoding/` | Test cases Double Encoding | Bypass Research |
+| `dataset/bypass/case-comment/` | Test cases Case Variation + SQL Comment | Bypass Research |
+| `dataset/bypass/parsing-discrepancy/` | Test cases Parsing Discrepancy | Bypass Research |
+| `docker/` + `docker-compose.yml` | Deployment 4 service web-app / waf-crs / waf-ml / db (mysql:8.4 LTS) | Architecture & Integration |
+| `docker/db/init/` | Schema + seed MySQL (`01-schema.sql`, `02-seed.sql`, track trong git) | Architecture & Integration |
+| `.env.example` | Mẫu biến môi trường (`DB_PASS`, `DATABASE_URL`) | Architecture & Integration |
+| `docker/waf-crs/` | Docker configuration/runtime setup cho ModSecurity + CRS | WAF Signature |
+| `docker/waf-ml/` | Docker configuration/runtime setup cho ML-WAF | ML Engineer (+ Architecture tích hợp) |
+| `docker/web-app/` | Docker configuration/runtime setup cho web application | Architecture & Integration |
+| `waf-crs/` | Configuration, rule customization và tài liệu riêng của CRS WAF | WAF Signature |
+| `waf-ml/` | Source code và configuration của ML-WAF | ML Engineer |
+| `web-app/` | Source code của web application mục tiêu trong lab | Architecture & Integration |
+| `experiments/` | Tổ chức các experiment theo từng nhóm | Bypass Research + Automation & Evaluation |
+| `experiments/baseline/` | Baseline testing trước khi mutation | WAF Signature + Automation & Evaluation |
+| `experiments/hpp/` | Experiment HPP / Fragmentation | Bypass Research |
+| `experiments/double-encoding/` | Experiment Double Encoding | Bypass Research |
+| `experiments/case-comment/` | Experiment Case Variation + SQL Comment | Bypass Research |
+| `experiments/parsing-discrepancy/` | Experiment Parsing Discrepancy | Bypass Research |
+| `scripts/` | Script tự động hóa testing và data processing | Automation & Evaluation |
+| `logs/waf/` | Log từ WAF (runtime, không commit) | WAF Signature / ML Engineer |
+| `logs/application/` | Log từ web application (runtime, không commit) | Architecture & Integration |
+| `results/raw/` | Kết quả thô từ experiments (runtime, không commit) | Automation & Evaluation |
+| `results/tables/` | Bảng kết quả đã tổng hợp | Automation & Evaluation |
+| `results/graphs/` | Biểu đồ và visualization | Automation & Evaluation |
+| `docs/` | Technical documentation và research notes | Tất cả (mỗi module ≥1 file .md) |
+| `report/` | Tài liệu phục vụ báo cáo cuối kỳ | Tất cả (theo phần trách nhiệm) |
 
 ### `docker/` và các thư mục module khác nhau như thế nào?
 
@@ -442,14 +467,17 @@ Repository tách **deployment configuration** và **module implementation**:
 ```text
 docker/
     │
+    ├── db/init/         → Schema + seed MySQL (track, init lúc db start)
     ├── waf-crs/       → Cách chạy WAF bằng Docker
     ├── waf-ml/        → Cách chạy ML-WAF bằng Docker
-    └── web-app/       → Cách chạy web app bằng Docker
+    └── web-app/       → Cách chạy web app bằng Docker (Flask + PyMySQL -> db:3306)
 
 waf-crs/               → Configuration / customization của CRS
 waf-ml/                → Source code của ML-WAF
 web-app/               → Source code của web application
 ```
+
+> Runtime `mysql-data` volume và `.env` local bị ignore. Chỉ `docker/db/init/*.sql` + `.env.example` được commit.
 
 Cách tổ chức này giúp tách:
 
@@ -472,6 +500,8 @@ và thuận tiện cho việc quản lý container độc lập.
 - ModSecurity
 - OWASP Core Rule Set
 - Python
+- MySQL 8.4 LTS (service `db`, chỉ nội bộ `webnet`, volume `mysql-data` bị ignore; `8.0.x` đã EOL 4/2026 nên lab dùng `8.4`)
+- PyMySQL (Web App kết nối qua `DATABASE_URL=mysql://root:${DB_PASS}@db:3306/waf_lab`)
 - Git
 - GitHub
 
@@ -503,24 +533,26 @@ Mô hình cụ thể sẽ được lựa chọn sau khi đánh giá dataset và 
 
 ## 🚀 Quick Start
 
-> **Status:** Module CRS đã có lab riêng và baseline PL1–PL3 được kiểm chứng.
-> Lab tích hợp đầy đủ (web-app + CRS + ML) vẫn đang trong kế hoạch.
-
-Chạy module của **Châu Gia Huy — ModSecurity + OWASP CRS** từ thư mục gốc repo:
+**Module CRS độc lập:** baseline PL1–PL3 đã có evidence trên fixture Python/SQLite.
 
 ```powershell
 python -m unittest discover -s waf-crs -p test_baseline.py -v
 python waf-crs/run_baseline.py
 ```
 
-Runner khởi động lab tại `http://localhost:18081`, kiểm chứng SQLi bằng backend
-fixture riêng và lưu audit/app logs cùng CSV/JSON. Xem
-[hướng dẫn và định nghĩa metric](docs/waf-crs.md) và
-[kết quả baseline đã quan sát](report/waf-crs-baseline.md).
+Lab riêng dùng `127.0.0.1:18080/18081`; xem [hướng dẫn CRS](docs/waf-crs.md)
+và [báo cáo baseline](report/waf-crs-baseline.md). Corpus, runner và evidence
+SQLite được giữ riêng với kết quả của backend Flask/MySQL.
 
-Quick Start cho lab tích hợp sẽ được hoàn thiện sau khi các module được ghép lại.
+**Lab tích hợp:** 4 service từ `feature/docker`, CRS blocking + JSON audit,
+application evidence có correlation ID. ML `/score` hiện vẫn là regex stub.
+Xem [Quick Start PowerShell](docs/quickstart-lab.md) để dựng lab và chạy
+`python waf-crs/run_integrated_smoke.py` kiểm chứng PL1.
+[Kết quả tích hợp PL1–PL3](report/crs-docker-integration.md) được lưu riêng với
+baseline SQLite.
 
-Dự kiến quy trình:
+> Chỉ chạy trên lab local. `.env` chứa mật khẩu lab và không được commit.
+
 
 ```bash
 # Clone repository
@@ -529,11 +561,23 @@ git clone <repository-url>
 # Enter project directory
 cd WAF-ML-Bypass
 
-# Start the lab
-docker compose up -d
+# Copy env mẫu rồi đổi DB_PASS thành giá trị riêng (không dùng default cho dữ liệu thật)
+cp .env.example .env
 
-# Check running containers
+# Start the lab (4 service: web-app, waf-crs, waf-ml, db)
+docker compose up -d --build
+
+# Check running containers (expect waf-app, waf-crs, waf-ml, waf-db healthy)
 docker compose ps
+
+# Smoke test (request hợp lệ)
+curl -i "http://localhost:8080/search?q=test"
+curl -i "http://localhost:8081/search?q=test"
+curl -s http://localhost:8082/health
+curl -s -X POST http://localhost:8082/score -H 'Content-Type: application/json' -d '{"text":"test"}'
+
+# Kiểm tra DB (thay <DB_PASS> bằng giá trị trong .env của bạn)
+docker compose exec db mysql -uroot -p"<DB_PASS>" -e "SELECT * FROM waf_lab.users;"
 
 # Run experiments
 # TBD
@@ -631,68 +675,99 @@ DOI:
 
 ## 🗓️ Project Roadmap
 
-Đồ án dự kiến triển khai trong **12 tuần**.
+Đồ án triển khai trong **12 tuần (triển khai lặp)**, theo kế hoạch nội bộ của nhóm.
 
 ```text
-Week 01–02
-Research + Architecture
+Tuần 01–02: Tổng quan & Lab Docker
+  - Nghiên cứu ModSecurity+CRS, ML-WAF, kỹ thuật bypass
+  - Thiết kế kiến trúc Web App + MySQL, schema test-case/result, repo + branch dev
+  - MILESTONE: docker compose up -d --build chạy 4 container (waf-app, waf-crs, waf-ml, waf-db healthy), web-app :8080 trả 200
         │
         ▼
-Week 03–04
-Docker Lab + Web Application
+Tuần 03–04: ModSecurity + CRS & Baseline
+  - Web App 3 endpoint (GET /search, GET /product, POST /login) + app.log, query MySQL waf_lab.users
+  - ModSecurity v3 + OWASP CRS, blocking, audit log
+  - Bộ baseline ≥10 case (5 benign / 5 malicious), tính Detection & FPR
+  - MILESTONE: SQLi mẫu bị 403 + rule ID, benign được forward 200
         │
         ▼
-Week 05–06
-ModSecurity/CRS + ML-WAF
+Tuần 05–06: ML-WAF Pipeline & Đào tạo Model
+  - dataset/raw (SQLi + benign), schema CSV/JSON, TF-IDF/BOW
+  - Logistic Regression / SVM, split 70/30 + Cross-Validation, chống leakage
+  - API scoring Flask/FastAPI {label, score} + version model
+  - MILESTONE: curl 1 request vào ML-WAF nhận được nhãn, chạy song song CRS
         │
         ▼
-Week 07–09
-Bypass Experiments
+Tuần 07–08: Bypass HPP & Double-Encoding
+  - Đóng băng schema test-case JSON, payload HPP + double-encoding
+  - scripts/run_experiment.py chạy qua cả CRS và ML-WAF, so sánh audit.log vs app log
+  - MILESTONE: bảng block/allow CRS vs ML cho 2 kỹ thuật + nguyên nhân bypass
         │
         ▼
-Week 10
-Evaluation + Data Analysis
+Tuần 09: Case Variation + SQL Comment
+  - Payload SeLeCt, comment --/#, kiểm tra CRS rule logs + độ nhạy ML
+  - MILESTONE: so sánh CRS vs ML cho case/comment + phân tích nguyên nhân
         │
         ▼
-Week 11
-CRS Hardening + Recommendations
+Tuần 10: Parsing Discrepancy
+  - 1–2 kiểu (duplicate params / trailer headers / chunked...), trích WAFFLED
+  - MILESTONE: demo 1 case WAF không thấy nhưng app thực thi + sơ đồ luồng
         │
         ▼
-Week 12
-Report + Presentation + Demo
+Tuần 11: Tổng hợp & Phân tích
+  - Gộp results, tính Detection / Bypass / FPR / FNR + Precision/Recall/F1 riêng cho CRS và ML theo từng kỹ thuật
+  - Bar chart CRS vs ML, rule ID kích hoạt nhiều nhất
+  - MILESTONE: bảng tổng kết điểm số theo từng kỹ thuật
+        │
+        ▼
+Tuần 12: Hardening & Báo cáo
+  - Tăng Paranoia Level PL1→PL3, đo lại detection vs FP, đề xuất đánh đổi
+  - Báo cáo (Giới thiệu, Kiến trúc, Thực nghiệm, Kết quả, Phân tích, Hardening, Kết luận) + slide demo
+  - MILESTONE: lab đầy đủ + báo cáo thô + slide có dữ liệu
 ```
+
+> *Lưu ý: thời hạn thực tế linh hoạt ±1 tuần tùy tiến độ.*
 
 ---
 
 ## 👥 Phân công nhóm
 
-| Member | Responsibility | Main Deliverables |
-|---|---|---|
-| **Member 1** | Architecture & Integration | Docker, integration, repository |
-| **Member 2** | ModSecurity + CRS | Signature WAF, CRS configuration |
-| **Member 3** | Machine Learning | Dataset, model, ML-WAF |
-| **Member 4** | Bypass Research | Bypass techniques, parser analysis |
-| **Member 5** | Automation & Evaluation | Test automation, metrics, visualization |
+**Đội dự án**: 5 thành viên — Hoàng Minh Hiếu, Châu Gia Huy, Đặng Văn Hoàng, Lê Đình Long, Huỳnh Như Hoàng.
 
-Các thành viên cần phối hợp và hiểu toàn bộ pipeline để đảm bảo khả năng tích hợp và bảo vệ đồ án.
+> Danh sách dưới đây là phân công vai trò công khai cho mục đích học thuật/CV.
+> Không đăng tải MSSV, email, số điện thoại hoặc thông tin cá nhân khác trong repo công khai.
+
+| Thành viên | Trách nhiệm chính | Files / Modules đảm nhận | Nhiệm vụ cụ thể (Checklist) |
+|---|---|---|---|
+| **Hoàng Minh Hiếu** | Kiến trúc & Tích hợp tổng thể | `docker/`, `docker-compose.yml`, `docker/db/`, `.env.example`, `docs/` (chốt interface; `scripts/` do Automation & Evaluation implement) | - Thiết kế Docker Compose 4 service **web-app, waf-crs, waf-ml, db (mysql:8.4 LTS)**; <br> - Đảm bảo network & port không trùng, DB chỉ nội bộ `webnet`; <br> - Quản lý `docker/db/init/*.sql` + `.env.example` (`DB_PASS`, `DATABASE_URL`); <br> - Cài đặt giao thức nội bộ giữa các container; <br> - Viết tài liệu hướng dẫn chạy lab (Quick Start). |
+| **Châu Gia Huy** | WAF Signature (ModSecurity + CRS) | `waf-crs/`, `docker/waf-crs/` | - Cài đặt ModSecurity 3.x + OWASP CRS mới nhất; <br> - Cấu hình blocking + audit log chi tiết; <br> - Kiểm tra rule SQLi mẫu (phải bị chặn 403); <br> - Thiết lập 3 mức Paranoia Level và so sánh sơ bộ. |
+| **Đặng Văn Hoàng** | Machine-Learning WAF | `waf-ml/`, `docker/waf-ml/`, `dataset/` | - Chuẩn bị dataset labeled (SQLi, XSS, benign); <br> - Tiền xử lý (tokenize, vectorize TF-IDF/BOW); <br> - Huấn luyện baseline (Logistic Regression / SVM); <br> - Cung cấp API Flask/FastAPI `{label, score}`; <br> - Quản lý phiên bản model. |
+| **Lê Đình Long** | Bypass Research (Payloads) | `dataset/bypass/`, `experiments/` | - Xây test-case cho 4 kỹ thuật (HPP, double-encoding, case/comment, parsing-discrepancy) theo schema thống nhất; <br> - Phát triển payload ví dụ và đối chứng; <br> - Phân tích khác biệt parser WAF vs App; <br> - Soạn tài liệu kỹ thuật từng kỹ thuật. |
+| **Huỳnh Như Hoàng** | Tự động hóa & Đánh giá | `scripts/`, `results/`, `experiments/` | - Viết `scripts/run_experiment.py`: gửi request, thu thập quyết định WAF & App, lưu CSV/JSON; <br> - Tính metrics (Detection, Bypass, FPR, FNR, Precision, Recall, F1); <br> - Vẽ biểu đồ so sánh CRS vs ML; <br> - Bảo đảm kết quả tái lập được. |
+
+> Mỗi thành viên **(1)** tự hiểu pipeline end-to-end, **(2)** phối hợp về giao diện chung (schema test-case, định dạng log, API scoring), **(3)** review lẫn nhau. Không ai làm toàn bộ riêng lẻ — cần liên tục tích hợp.
 
 ---
 
 ## 🔄 Development Workflow
 
-Repository hiện sử dụng `main` làm branch chính.
+Repository dùng GitFlow: `main` là stable, `dev` là nhánh tích hợp. Mỗi tính năng phát triển trên branch riêng (`feature/<name>`).
 
 Mỗi thành viên phát triển trên feature branch:
 
 ```text
-main
- │
- ├── feature/docker
- ├── feature/crs
- ├── feature/ml-waf
- ├── feature/bypass
- └── feature/experiments
+main (stable)
+  │
+  └── dev (tích hợp)
+        │
+        ├── feature/docker
+        ├── feature/crs
+        ├── feature/ml-waf
+        ├── feature/bypass
+        └── feature/experiments
 ```
+
+> Chi tiết ai phụ trách branch nào xem bảng [👥 Phân công nhóm](#-phân-công-nhóm). Bảng trên chỉ nêu quy ước đặt tên branch.
 
 Quy trình:
 
@@ -703,24 +778,23 @@ Feature Branch
    Commit
       │
       ▼
-Pull Request
+Pull Request (vào dev)
       │
       ▼
-Review / Test
+Review (>=1 thành viên) + Smoke-test
       │
       ▼
-   main
+dev → main (khi stable)
 ```
 
 ### Quy tắc
 
-- Không push trực tiếp vào `main`.
-- Mỗi module nên được phát triển trên feature branch.
-- Pull Request được review trước khi merge.
-- Không commit secret, credential hoặc dữ liệu nhạy cảm.
-- Không commit dataset hoặc log chứa thông tin nhạy cảm.
+- Không push trực tiếp vào `main` / `dev`. Mọi thay đổi qua PR + review.
+- Mỗi PR tối thiểu qua smoke-test: web-app trả 200, WAF chặn payload SQLi mẫu (403), ML-WAF trả nhãn, runner script output đúng schema CSV/JSON.
+- Thay đổi chung (docker-compose, schema test-case, định dạng log/API) phải qua review nhóm. Cấm edit chồng lấp sai thư mục sở hữu (xem bảng Phân công nhóm).
+- Không commit secret/credential. Không commit dataset raw, logs, model binaries (đã cấu hình `.gitignore`).
 - Experiment phải có cách tái lập rõ ràng.
-- Commit message nên mô tả rõ thay đổi.
+- Commit message mô tả rõ thay đổi.
 
 ---
 
@@ -878,9 +952,36 @@ Conclusion
 
 ---
 
+## 🧠 Kỹ năng thể hiện
+
+Repository này thể hiện các kỹ năng phục vụ CV:
+
+- Triển khai lab bảo mật bằng **Docker / Docker Compose** (multi-service, network nội bộ, healthcheck).
+- Cấu hình **ModSecurity + OWASP CRS** (blocking, audit log, Paranoia Level).
+- Xây dựng Web App **Flask + PyMySQL** có logging đối chiếu WAF log vs App log.
+- Pipeline ML cơ bản: **TF-IDF + Logistic Regression/SVM (scikit-learn)**, đánh giá Precision/Recall/F1, chống data leakage.
+- Tự động hóa thực nghiệm bằng Python, tổng hợp CSV/JSON và trực quan hóa kết quả.
+
+---
+
+## 📬 Liên hệ
+
+- Nhóm thực hiện 5 thành viên, xem chi tiết ở [👥 Phân công nhóm](#-phân-công-nhóm).
+- Trao đổi chuyên môn qua GitHub Issues của repository này.
+- Vui lòng không gửi credential, dữ liệu cá nhân hoặc log production qua kênh công khai.
+
+---
+
+## 📄 Giấy phép
+
+- Mã nguồn: [MIT License](./LICENSE).
+- Chính sách bảo mật và phạm vi nghiên cứu có trách nhiệm: [SECURITY.md](./SECURITY.md).
+
+---
+
 ## 🚧 Project Status
 
-**Status: Initial Setup**
+**Status: CRS baseline và Docker integration đã kiểm chứng; ML model đang chờ triển khai**
 
 ### Completed
 
@@ -896,11 +997,11 @@ Conclusion
 - [ ] Finalize system architecture
 - [ ] Build Docker lab
 - [ ] Deploy controlled web application
-- [ ] Deploy ModSecurity + OWASP CRS
+- [x] Deploy ModSecurity + OWASP CRS (blocking + audit trong module CRS)
 - [ ] Prepare ML dataset
 - [ ] Implement ML-WAF
 - [ ] Build automated testing pipeline
-- [ ] Conduct baseline experiments
+- [x] Conduct CRS baseline experiments (SQLite fixture, PL1–PL3)
 - [ ] Conduct bypass experiments
 - [ ] Analyze results
 - [ ] CRS hardening

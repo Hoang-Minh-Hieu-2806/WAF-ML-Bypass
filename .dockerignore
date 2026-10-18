@@ -1,0 +1,12 @@
+.git
+.env
+.env.*
+logs
+results
+tmp
+temp
+**/__pycache__
+**/.venv
+**/node_modules
+dataset/raw
+dataset/processed

@@ -1,0 +1,8 @@
+[
+  {"id":"BEN-SEARCH","technique":"integration-smoke","label":"benign","request":{"method":"GET","path":"/search","params":[["q","test"]]}},
+  {"id":"BEN-PRODUCT","technique":"integration-smoke","label":"benign","request":{"method":"GET","path":"/product","params":[["id","1"]]}},
+  {"id":"BEN-LOGIN","technique":"integration-smoke","label":"benign","request":{"method":"POST","path":"/login","form":[["username","alice"],["password","alice123"]]}},
+  {"id":"SQLI-SEARCH","technique":"integration-smoke","label":"malicious","request":{"method":"GET","path":"/search","params":[["q","' OR 1=1 -- "]]}},
+  {"id":"SQLI-PRODUCT","technique":"integration-smoke","label":"malicious","request":{"method":"GET","path":"/product","params":[["id","1 OR 1=1"]]}},
+  {"id":"SQLI-LOGIN","technique":"integration-smoke","label":"malicious","request":{"method":"POST","path":"/login","form":[["username","' OR 1=1 -- "],["password","wrong"]]}}
+]
