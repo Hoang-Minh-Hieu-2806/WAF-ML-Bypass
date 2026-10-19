@@ -595,7 +595,7 @@ docker compose ps   # expect waf-app, waf-crs, waf-ml, waf-db healthy
 curl -i "http://localhost:8081/search?q=test"                 # benign -> 200
 curl -i "http://localhost:8081/product?id=1%20OR%201%3D1"     # SQLi   -> 403
 curl -s http://localhost:8082/health
-curl -s -X POST http://localhost:8082/score -H "Content-Type: application/json" -d "{\"text\":\"1 OR 1=1\"}"
+echo '{"text":"1 OR 1=1"}' | curl -s -X POST http://localhost:8082/score -H "Content-Type: application/json" -d "@-"
 
 # Đối chiếu WAF vs App trên MySQL: correlation ID, PL, evidence (mặc định PL1)
 python waf-crs/run_integrated_smoke.py

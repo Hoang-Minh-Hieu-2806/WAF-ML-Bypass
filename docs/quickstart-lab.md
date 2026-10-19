@@ -31,10 +31,12 @@ curl.exe -i 'http://localhost:8080/healthz'
 curl.exe -i 'http://localhost:8081/search?q=test'
 curl.exe -i 'http://localhost:8081/product?id=1%20OR%201%3D1'
 curl.exe -s 'http://localhost:8082/health'
+echo '{"text":"1 OR 1=1"}' | curl.exe -s -X POST http://localhost:8082/score -H "Content-Type: application/json" -d "@-"
 python waf-crs/run_integrated_smoke.py
 ```
 
-Kỳ vọng: health/benign 200, SQLi 403. Runner kiểm chứng thêm direct controls,
+Kỳ vọng: health/benign 200, SQLi 403; ML stub trả `malicious`/0.9 cho payload SQLi
+(contract regex stub, không phải kết quả model). Runner kiểm chứng thêm direct controls,
 audit SQLi `942xxx`, inbound block `949110` và application evidence. Mỗi run
 có snapshot/metadata/CSV/summary riêng tại `results/raw/crs-integrated/`.
 Đây là smoke corpus 6 case; không thay thế bảng baseline SQLite hoặc benchmark.
