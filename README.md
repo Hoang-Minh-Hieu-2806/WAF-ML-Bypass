@@ -371,17 +371,24 @@ WAF-ML-Bypass/
 │   ├── db/init/
 │   │   ├── 01-schema.sql
 │   │   └── 02-seed.sql
-│   ├── waf-crs/
-│   │   └── .gitkeep
+│   ├── waf-crs/              ← lab SQLite độc lập (Huy)
+│   │   ├── Dockerfile
+│   │   ├── Dockerfile.backend
+│   │   └── compose.yml
 │   ├── waf-ml/
-│   │   └── .gitkeep
+│   │   └── Dockerfile
 │   └── web-app/
-│       └── .gitkeep
+│       └── Dockerfile
 │
+├── .dockerignore
 ├── .env.example
+├── docker-compose.yml        ← lab tích hợp 4 service
 │
 ├── docs/
-│   └── .gitkeep
+│   ├── architecture.md
+│   ├── interfaces.md
+│   ├── quickstart-lab.md
+│   └── waf-crs.md
 │
 ├── experiments/
 │   ├── baseline/
@@ -397,12 +404,17 @@ WAF-ML-Bypass/
 │
 ├── logs/
 │   ├── waf/
-│   │   └── .gitkeep
+│   │   ├── .gitkeep
+│   │   └── integrated/
+│   │       └── .gitkeep
 │   └── application/
-│       └── .gitkeep
+│       ├── .gitkeep
+│       └── integrated/
+│           └── .gitkeep
 │
 ├── report/
-│   └── .gitkeep
+│   ├── crs-docker-integration.md
+│   └── waf-crs-baseline.md
 │
 ├── results/
 │   ├── raw/
@@ -413,16 +425,27 @@ WAF-ML-Bypass/
 │       └── .gitkeep
 │
 ├── scripts/
+│   ├── README.md
+│   ├── requirements-attack.txt
 │   └── .gitkeep
 │
 ├── waf-crs/
-│   └── .gitkeep
+│   ├── README.md
+│   ├── baseline.json
+│   ├── integrated-smoke.json
+│   ├── run_baseline.py
+│   ├── run_integrated_smoke.py
+│   ├── test_backend.py
+│   └── test_baseline.py
 │
 ├── waf-ml/
-│   └── .gitkeep
+│   ├── app.py
+│   └── requirements.txt
 │
 └── web-app/
-    └── .gitkeep
+    ├── app.py
+    ├── requirements.txt
+    └── test_app.py
 ```
 
 ### Vai trò các thư mục
@@ -564,26 +587,30 @@ cd WAF-ML-Bypass
 # Copy env mẫu rồi đổi DB_PASS thành giá trị riêng (không dùng default cho dữ liệu thật)
 cp .env.example .env
 
-# Start the lab (4 service: web-app, waf-crs, waf-ml, db)
-docker compose up -d --build
+# Start the lab (4 service: web-app, waf-crs, waf-ml, db) và chờ healthy
+docker compose up -d --build --wait --wait-timeout 240
+docker compose ps   # expect waf-app, waf-crs, waf-ml, waf-db healthy
 
-# Check running containers (expect waf-app, waf-crs, waf-ml, waf-db healthy)
-docker compose ps
-
-# Smoke test (request hợp lệ)
-curl -i "http://localhost:8080/search?q=test"
-curl -i "http://localhost:8081/search?q=test"
+# Smoke test: 8080 = web-app trực tiếp, 8081 = qua CRS WAF, 8082 = ML scoring API
+curl -i "http://localhost:8081/search?q=test"                 # benign -> 200
+curl -i "http://localhost:8081/product?id=1%20OR%201%3D1"     # SQLi   -> 403
 curl -s http://localhost:8082/health
-curl -s -X POST http://localhost:8082/score -H 'Content-Type: application/json' -d '{"text":"test"}'
+curl -s -X POST http://localhost:8082/score -H "Content-Type: application/json" -d "{\"text\":\"1 OR 1=1\"}"
+
+# Đối chiếu WAF vs App trên MySQL: correlation ID, PL, evidence (mặc định PL1)
+python waf-crs/run_integrated_smoke.py
+
+# Regression tests (test app cần Flask/PyMySQL trong Python đang dùng)
+python -m unittest discover -s waf-crs -p test_baseline.py -v
+python -m unittest discover -s web-app -p test_app.py -v
 
 # Kiểm tra DB (thay <DB_PASS> bằng giá trị trong .env của bạn)
 docker compose exec db mysql -uroot -p"<DB_PASS>" -e "SELECT * FROM waf_lab.users;"
-
-# Run experiments
-# TBD
 ```
 
-Các command chính thức sẽ được cập nhật sau khi hoàn thành Phase 1.
+> Chi tiết đầy đủ (PL1–PL3, rollback, log paths): [docs/quickstart-lab.md](docs/quickstart-lab.md).
+> Trên Windows, nếu đường dẫn repo chứa ký tự ngoài cp1252 (ví dụ `Bảo mật web và app`),
+> đặt `$env:PYTHONUTF8='1'` trước khi chạy runner Python.
 
 ---
 
@@ -681,21 +708,21 @@ DOI:
 Tuần 01–02: Tổng quan & Lab Docker
   - Nghiên cứu ModSecurity+CRS, ML-WAF, kỹ thuật bypass
   - Thiết kế kiến trúc Web App + MySQL, schema test-case/result, repo + branch dev
-  - MILESTONE: docker compose up -d --build chạy 4 container (waf-app, waf-crs, waf-ml, waf-db healthy), web-app :8080 trả 200
+  - MILESTONE: docker compose up -d --build chạy 4 container (waf-app, waf-crs, waf-ml, waf-db healthy), web-app :8080 trả 200 — ✅ 13/10/2026
         │
         ▼
 Tuần 03–04: ModSecurity + CRS & Baseline
   - Web App 3 endpoint (GET /search, GET /product, POST /login) + app.log, query MySQL waf_lab.users
   - ModSecurity v3 + OWASP CRS, blocking, audit log
   - Bộ baseline ≥10 case (5 benign / 5 malicious), tính Detection & FPR
-  - MILESTONE: SQLi mẫu bị 403 + rule ID, benign được forward 200
+  - MILESTONE: SQLi mẫu bị 403 + rule ID, benign được forward 200 — ✅ 10/10/2026 (SQLite PL1–PL3), ✅ 18/10/2026 (tích hợp Flask/MySQL)
         │
         ▼
 Tuần 05–06: ML-WAF Pipeline & Đào tạo Model
   - dataset/raw (SQLi + benign), schema CSV/JSON, TF-IDF/BOW
   - Logistic Regression / SVM, split 70/30 + Cross-Validation, chống leakage
   - API scoring Flask/FastAPI {label, score} + version model
-  - MILESTONE: curl 1 request vào ML-WAF nhận được nhãn, chạy song song CRS
+  - MILESTONE: curl 1 request vào ML-WAF nhận được nhãn, chạy song song CRS — 🔶 stub `/score` đã sẵn sàng; model thật tuần 05–06
         │
         ▼
 Tuần 07–08: Bypass HPP & Double-Encoding
@@ -981,7 +1008,7 @@ Repository này thể hiện các kỹ năng phục vụ CV:
 
 ## 🚧 Project Status
 
-**Status: CRS baseline và Docker integration đã kiểm chứng; ML model đang chờ triển khai**
+**Status: Docker lab + CRS baseline/integration đã kiểm chứng; ML model và bypass experiments đang triển khai**
 
 ### Completed
 
@@ -991,18 +1018,18 @@ Repository này thể hiện các kỹ năng phục vụ CV:
 - [x] Research scope defined
 - [x] Experimental categories defined
 - [x] Initial README created
+- [x] Docker lab 4 service healthy (waf-app, waf-crs, waf-ml, waf-db) — 13/10/2026
+- [x] Controlled web application Flask + PyMySQL + MySQL 8.4, 3 endpoint + app evidence JSONL
+- [x] ModSecurity + OWASP CRS: baseline SQLite PL1–PL3 (13 case) + tích hợp Flask/MySQL (18/10/2026)
+- [x] Hợp đồng tích hợp và tài liệu: `docs/architecture.md`, `docs/interfaces.md`, `docs/quickstart-lab.md`, `docs/waf-crs.md`
 
 ### In Progress
 
-- [ ] Finalize system architecture
-- [ ] Build Docker lab
-- [ ] Deploy controlled web application
-- [x] Deploy ModSecurity + OWASP CRS (blocking + audit trong module CRS)
+- [ ] Finalize system architecture (còn chốt ML enforcement path trước tuần 07 — xem `docs/architecture.md`)
 - [ ] Prepare ML dataset
-- [ ] Implement ML-WAF
-- [ ] Build automated testing pipeline
-- [x] Conduct CRS baseline experiments (SQLite fixture, PL1–PL3)
-- [ ] Conduct bypass experiments
+- [ ] Implement ML-WAF (tuần 05–06; thay regex stub, giữ nguyên contract `/score`)
+- [ ] Bypass experiments HPP / double-encoding / case-comment / parsing-discrepancy (tuần 07–10)
+- [ ] Build automated testing pipeline (`scripts/run_experiment.py`)
 - [ ] Analyze results
 - [ ] CRS hardening
 - [ ] Final report

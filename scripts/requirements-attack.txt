@@ -1,0 +1,6 @@
+# T03 — Tool tấn công cho lab local (KHÔNG cài trong image compose, xem docs/interfaces.md §4)
+# Cài riêng trên máy: python -m pip install -r scripts/requirements-attack.txt
+# Chỉ dùng với target trong lab do nhóm kiểm soát (xem SECURITY.md).
+sqlmap>=1.8
+# WAF-A-MoLE: cài từ repo GitHub chính thức của nhóm tác giả
+# (xem mục Tài liệu tham khảo WAF-A-MoLE trong README.md).

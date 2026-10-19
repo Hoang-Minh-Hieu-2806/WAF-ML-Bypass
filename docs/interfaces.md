@@ -10,16 +10,25 @@
 {
   "id": "hpp-001",
   "technique": "hpp | double-encoding | case-comment | parsing-discrepancy",
+  "label": "benign | malicious",
   "method": "GET",
   "path": "/search",
-  "params": {"q": "' OR 1=1--"},
+  "params": [["q", "' OR 1=1--"], ["q", "second-value"]],
+  "form": [["username", "alice"], ["password", "lab-only"]],
   "headers": {},
   "expected_app": "executed | blocked",
   "note": "WAF thấy gì vs App thực thi gì"
 }
 ```
 
-`scripts/run_experiment.py` (Hoàng) phải gửi y nguyên `method/path/params/headers`,
+`params` và `form` là **danh sách cặp có thứ tự**, giữ nguyên duplicate key và thứ
+tự xuất hiện — HPP và parsing discrepancy không biểu diễn được ở dạng JSON object
+nên runner không được collapse thành dict. GET dùng `params`, POST dùng `form`;
+trường không dùng để `[]`. `label` phục vụ tính metrics. Schema này khớp corpus CRS
+(`waf-crs/*.json`) — khác duy nhất là corpus CRS bọc trong `request`.
+
+`scripts/run_experiment.py` (Hoàng) phải dựng raw query/body đúng thứ tự cặp,
+gửi y nguyên `method/path/params/form/headers`,
 ghi `results/raw/*.csv|json` gồm: `waf decision, http status, app behavior, rule id, ml {label,score}`.
 
 ## 2. Log format (so audit.log vs app log)
@@ -61,9 +70,9 @@ Tuần 05-06 thay bằng `TF-IDF + LogisticRegression/SVM`, giữ nguyên JSON k
 ## 5. CRS baseline và smoke corpus
 
 Runner CRS dùng `request.method/path/params/form`; `params` và `form` là danh
-sách cặp theo thứ tự, bảo toàn duplicate keys. Schema ví dụ ở mục 1 là giao
-diện dự kiến của runner nhóm; cần adapter nếu đọc corpus CRS, không ép danh
-sách cặp thành JSON object khi thử HPP. Runner nhóm chưa được implement ở đây.
+sách cặp theo thứ tự, bảo toàn duplicate keys. Từ 19/10 mục 1 dùng cùng dạng cặp
+nên runner nhóm chỉ cần adapter bóc lớp `request` khi đọc corpus CRS, không ép
+danh sách cặp thành JSON object khi thử HPP. Runner nhóm chưa được implement ở đây.
 
 `semantic_effect` trên MySQL là có user ID ngoài kết quả query bind-parameter
 tham chiếu trên cùng connection. SQL error/echo/HTTP 200 không đủ chứng minh

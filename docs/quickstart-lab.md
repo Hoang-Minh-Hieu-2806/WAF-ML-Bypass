@@ -13,6 +13,9 @@ if (-not (Test-Path -LiteralPath .env)) { Copy-Item .env.example .env }
 # Lần đầu: sửa DB_PASS trong .env trước khi tạo database.
 $env:CRS_PL = '1'
 $env:MODSEC_RULE_ENGINE = 'On'
+# Bắt buộc nếu đường dẫn repo chứa ký tự ngoài cp1252 (ví dụ "Bảo mật web và app"):
+# runner Python < 3.15 crash ở bước in path khi console Windows dùng cp1252.
+$env:PYTHONUTF8 = '1'
 docker compose config --quiet
 docker compose up -d --build --wait --wait-timeout 240
 docker compose ps

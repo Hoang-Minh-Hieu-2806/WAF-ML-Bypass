@@ -48,3 +48,20 @@ Nó có log `logs/*/crs/` và output `results/raw/crs/`, độc lập với lab 
 
 Lab MySQL dùng corpus smoke riêng gồm 3 benign + 3 SQLi; output nằm trong
 `results/raw/crs-integrated/`. Không gộp hai corpus/backend vào cùng bảng metric.
+
+## ML enforcement path — đề xuất, chờ review nhóm
+
+`waf-ml` hiện chỉ là scoring API song song (`POST /score`), chưa có đường chặn
+request, nên "ML-WAF bypass rate" chưa đo được end-to-end. Đề xuất chốt trước
+tuần 07 (khi bắt đầu bypass experiments), hai phương án:
+
+1. **Proxy nhỏ trong `waf-ml` (ưu tiên):** thêm port nội bộ nhận request, gọi
+   model, `allow` → forward `web-app:5000`, `block` → trả 403. Không thêm
+   service mới, tái dùng image `waf-ml`, giữ nguyên contract `/score`.
+2. **Gateway `nginx auth_request`:** một image gateway mới gọi `/score` nội bộ
+   trước khi proxy tới web-app. Linh hoạt hơn nhưng thêm service và cấu hình.
+
+Cả hai phương án không đổi schema test-case hay interface runner: runner vẫn
+gửi request tới một port WAF và đọc `waf decision + rule/ml evidence` như CRS.
+Cần Hoàng ML và Hoàng auto review trước khi đưa vào `docker-compose.yml`;
+chưa chốt thì không thêm gì vào compose.
