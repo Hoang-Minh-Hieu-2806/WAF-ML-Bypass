@@ -36,7 +36,7 @@
 
 ## Signature semantic — phân biệt kỹ `blocked` vs `detected`
 
-- 3 case `pd-*` blocked là vì CRS rule **không phải SQL-family** (920640/920170/920420): CRS vẫn cho phép WAF pass.xml không thực hiện script-scoring — nhưng nginx sẽ không gửi body chunked/thunked mà backend Werkzeug / Flask reject đúng boundary; app sẽ không nhận dữ liệu nào như **pd-mal-001**; framework can cho phép block by transport misconfiguration.
+- 3 case `pd-*` blocked: 2 protocol-only (pd-mal-001 do `920640` Content-Type-missing khi chunked; pd-mal-003 do `920420` content-type policy) và 1 chồng lấn (pd-mal-002 có rule SQL-family `942100` đồng thời `920170` GET-with-body) — pd-mal-002 bị chặn bởi cả hai cơ chế, 2 case còn lại chặn hoàn toàn bởi rule transport.
 - 2 case `de-mal-002/003` blocked PL3 chỉ dựa trên rule **920230 (Multiple URL Encoding) + 920272 (Invalid character)** — về mặt SQL-libinjection vẫn không detect — `detected` không tính vì không phải payload-family, nhưng đã bị block.
 - ⇒ **Block bằng protocol không thay thế detection** (`detected` đo payload-family; `block%` đo trải nghiệm tổng thể). Báo cáo slide giữa kỳ đã tách brèves hai cột này.
 
@@ -52,12 +52,16 @@
 
 ## Blocked-cơ chế theo PL — SQL-family rule vs protocol rule (dùng cho slide)
 
-| PL | Blocked nhờ rule SQL-family (94x libinjection/942...) | Blocked chỉ nhờ rule transport/protocol (92x/921x/932x) | Tổng blocked |
-|---|---|---|---|
-| PL1 | 10 | 3 (pd: 920640×2, 920170, 920420) | 13 |
-| PL2 | 10 | 3 | 13 |
-| PL3 | 10 | 5 (pd×3 + de-mal-002/003 nhờ 920230/920272) | 15 |
+Method phân theo sự hiện diện rule-id trong audit của từng case: **SQL-family** = có ≥1 rule `942xxx` (libinjection `942100` + regex SQLi); **protocol** = chỉ rule `92x/921x` (920230 *Multiple URL Encoding*, 920272 *Invalid character*, 920640 *CT-missing*, 920170 *GET-with-body*, 920420 *CT-policy*, 921180 *HPP*). Hai nhóm **không độc lập** — một case có thể kích đồng thời cả hai (cột "chồng lấn"); `949110` (Inbound Anomaly Score) là rule gate xuất hiện ở **13/13/15** case blocked, không tính vào các cột.
 
-⇒ **CRS chọn "an toàn tuyệt đối" bằng over-blocking ở PL3**: cùng 10 case SQL-family được block mọi PL, trong khi 2 case DE "không detect" ở PL1/PL2 bị chặn vật lý ở PL3 bằng protocol anomaly rule (chính cơ chế đó tạo FPR 72.7% cho benign). Trade-off kinh điển của signature WAF: càng dồn anomaly threshold lên để chắc chắn chặn mọi biến thể, càng nhiều request hợp lệ bị over-block.
+| PL | Có rule SQL-family (≥1 rule 942xxx) | — trong đó chồng lấn thêm protocol (92x/921x) | Chỉ rule protocol (không 94x) | Tổng blocked |
+|---|---|---|---|---|
+| PL1 | **11** (= 10 chỉ-SQL + 1 chồng lấn) | 1 — pd-mal-002 (`942100` + `920170`) | 2 — pd-mal-001 (`920640`), pd-mal-003 (`920420`) | 13 |
+| PL2 | **11** (= 8 chỉ-SQL + 3 chồng lấn) | 3 — de-mal-001, de-mal-004 (+`920230`), pd-mal-002 (+`920170`) | 2 — pd-mal-001 (`920640`), pd-mal-003 (`920420`) | 13 |
+| PL3 | **11** (= 5 chỉ-SQL + 6 chồng lấn) | 6 — hpp×3 (`921180` HPP), de-mal-001/004 (+`920230/920272`), pd-mal-002 (+`920170`) | 4 — de-mal-002/003 (`920230`+`920272`), pd-mal-001 (`920640`), pd-mal-003 (`920420`) | 15 |
 
-Nếu cần một câu chốt cho slide: **PL1→PL3: recall SQL-family giữ nguyên 86.7% (10 case); sang PL3 block đạt 100% là nhờ protocol rule — giá trả: FPR 9.1% → 72.7%, tức benign blocked tăng 8 lần**.
+⇒ **CRS chọn "an toàn tuyệt đối" bằng over-blocking ở PL3**: cùng **11 case SQL-family được block mọi PL** (đúng số detected 11/15 ở cả 3 PL), trong khi 2 case DE "không detect" ở PL1/PL2 bị chặn vật lý ở PL3 bằng protocol anomaly rule (chính cơ chế đó tạo FPR 72.7% cho benign). Trade-off kinh điển của signature WAF: càng dồn anomaly threshold lên để chắc chắn chặn mọi biến thể, càng nhiều request hợp lệ bị over-block.
+
+Số rule-instance trên các case blocked (không tính `949110`): PL1 SQL-family 12 / protocol 3; PL2 SQL 54 / protocol 5 (+4 RCE `932xxx` ở case-comment); PL3 SQL 66 / protocol 14 (+13 RCE `932xxx`). RCE `932xxx` không dùng để phân 2 cột (chỉ hiện ở case-comment, luôn đi kèm rule SQL-family).
+
+Nếu cần một câu chốt cho slide: **PL1→PL3: detection SQL-family ổn định 11/15 (73.3%) — cùng 11 case mọi PL; block tổng tăng 13→15/15 (86.7%→100%) khi rule protocol bắt thêm de-mal-002/003 — giá trả: FPR 9.1% → 72.7%, tức benign blocked tăng 8 lần**.
