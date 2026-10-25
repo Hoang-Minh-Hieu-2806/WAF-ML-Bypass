@@ -5,11 +5,10 @@ Lab local gồm bốn service từ `feature/docker` và module CRS đã tích h�
 ```text
 Client -> 127.0.0.1:8081 -> waf-crs:8080 -> web-app:5000 -> db:3306
 Client -> 127.0.0.1:8080 ----------------> web-app:5000   (direct control)
-Client -> 127.0.0.1:8082 -> waf-ml:5001/score            (regex stub)
+Client -> 127.0.0.1:8082 -> waf-ml:5001/score            (model lr-tfidf-1.0)
 ```
 
-`waf-ml` hiện là scoring API, chưa phải proxy và chưa có model học máy.
-Không báo kết quả stub là kết quả ML-WAF. MySQL không publish port ra host;
+`waf-ml` là scoring API chạy model lr-tfidf-1.0 (LogisticRegression + TF-IDF n-gram ký tự, train trong container; F1 0.9076 / FPR 0.0168 — OOF validation GroupKFold5 group=family trên n=312 — results/tables/ml-v0-summary.md). Chưa phải enforcement proxy — đó là kế hoạch tuần 07. MySQL không publish port ra host;
 các HTTP port chỉ bind loopback. Bridge Docker không chặn outbound Internet.
 
 ## Cấu hình CRS

@@ -36,7 +36,7 @@ python waf-crs/run_integrated_smoke.py
 ```
 
 Kỳ vọng: health/benign 200, SQLi 403; ML stub trả `malicious`/0.9 cho payload SQLi
-(contract regex stub, không phải kết quả model). Runner kiểm chứng thêm direct controls,
+(model lr-tfidf-1.0 thật — F1 0.9076 trên test n=312). Runner `scripts/run_experiment.py` kiểm chứng thêm direct controls,
 audit SQLi `942xxx`, inbound block `949110` và application evidence. Mỗi run
 có snapshot/metadata/CSV/summary riêng tại `results/raw/crs-integrated/`.
 Đây là smoke corpus 6 case; không thay thế bảng baseline SQLite hoặc benchmark.
@@ -66,7 +66,7 @@ Các test app dùng database mock; smoke runner mới kiểm chứng MySQL thậ
 - App JSONL: `logs/application/integrated/app.jsonl`; stdout SQL vẫn có.
 - `.env`, logs và raw results không commit. Không lưu Compose config đầy đủ
   hoặc container environment vào evidence vì có thể chứa mật khẩu `.env`.
-- ML `/score` vẫn dùng regex stub; chưa đánh giá mô hình học máy.
+- ML `/score` chạy model lr-tfidf-1.0 (train thật trong container); đánh giá n=312 GroupKFold5: F1 0.9076, FPR 1.68% — results/tables/ml-v0-summary.md.
 
 ## Dừng và rollback
 

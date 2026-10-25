@@ -10,7 +10,11 @@ WORKDIR /app
 COPY waf-ml/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY waf-ml/app.py ./app.py
+RUN mkdir -p /app/artifacts
+# Tuần 05-06: train.py/build_dataset.py/server.py đi vào image;
+# server.py train trong container nếu artifacts trống (sklearn pin sẵn).
+COPY waf-ml/app.py waf-ml/build_dataset.py waf-ml/train.py waf-ml/server.py ./
+ENV ML_MODEL_DIR=/app/artifacts
 
 EXPOSE 5001
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "5001"]
+CMD ["python", "server.py"]
