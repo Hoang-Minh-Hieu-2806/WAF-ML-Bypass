@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="480" viewBox="0 0 880 480" font-family="Segoe UI, Arial, sans-serif">
+  <rect width="880" height="480" fill="#ffffff"/>
+  <text x="440" y="26" text-anchor="middle" font-size="17" font-weight="bold" fill="#111827">ML-WAF v0 — % bắt được SQLi theo từng family (GroupKFold CV, leak-safe theo family)</text>
+  <text x="440" y="46" text-anchor="middle" font-size="12" fill="#6b7280">TF-IDF char 2-5 gram + LogisticRegression · n=312 · threshold 0.5 · model lr-tfidf-1.0</text>
+
+  <!-- horizontal bars: x start 230, scale 6.2px/% -->
+  <!-- union 100 -> 620 -->
+  <text x="222" y="84" text-anchor="end" font-size="13" fill="#374151">union</text>
+  <rect x="230" y="72" width="620" height="18" fill="#059669" rx="3"/><text x="856" y="85" font-size="12" fill="#111827">100.0%</text>
+
+  <text x="222" y="124" text-anchor="end" font-size="13" fill="#374151">casing (SeLeCt)</text>
+  <rect x="230" y="112" width="620" height="18" fill="#059669" rx="3"/><text x="856" y="125" font-size="12" fill="#111827">100.0%</text>
+
+  <text x="222" y="164" text-anchor="end" font-size="13" fill="#374151">tautology-n (1 OR 1=1)</text>
+  <rect x="230" y="152" width="577" height="18" fill="#059669" rx="3"/><text x="820" y="165" font-size="12" fill="#111827">93.1%</text>
+
+  <text x="222" y="204" text-anchor="end" font-size="13" fill="#374151">tautology-s (' OR 1=1)</text>
+  <rect x="230" y="192" width="558" height="18" fill="#059669" rx="3"/><text x="806" y="205" font-size="12" fill="#111827">90.0%</text>
+
+  <text x="222" y="244" text-anchor="end" font-size="13" fill="#374151">time (SLEEP)</text>
+  <rect x="230" y="232" width="496" height="18" fill="#f59e0b" rx="3"/><text x="740" y="245" font-size="12" fill="#111827">80.0%</text>
+
+  <text x="222" y="284" text-anchor="end" font-size="13" fill="#374151">double-encoding</text>
+  <rect x="230" y="272" width="496" height="18" fill="#f59e0b" rx="3"/><text x="740" y="285" font-size="12" fill="#111827">80.0%</text>
+
+  <text x="222" y="324" text-anchor="end" font-size="13" fill="#374151">error-based</text>
+  <rect x="230" y="312" width="482" height="18" fill="#f59e0b" rx="3"/><text x="726" y="325" font-size="12" fill="#111827">77.8%</text>
+
+  <text x="222" y="364" text-anchor="end" font-size="13" fill="#374151">encoding (%27)</text>
+  <rect x="230" y="352" width="443" height="18" fill="#f59e0b" rx="3"/><text x="686" y="365" font-size="12" fill="#111827">71.4%</text>
+
+  <text x="222" y="404" text-anchor="end" font-size="13" fill="#374151">fragment (/**/)</text>
+  <rect x="230" y="392" width="388" height="18" fill="#dc2626" rx="3"/><text x="632" y="405" font-size="12" fill="#111827">62.5%</text>
+
+  <text x="222" y="444" text-anchor="end" font-size="13" fill="#374151">boolean (' AND 'a'='a)</text>
+  <rect x="230" y="432" width="345" height="18" fill="#dc2626" rx="3"/><text x="589" y="445" font-size="12" fill="#111827">55.6%</text>
+
+  <g>
+    <rect x="230" y="452" width="248" height="18" fill="#dc2626" rx="3"/>
+    <text x="492" y="465" font-size="12" fill="#111827">40.0%</text>
+    <text x="222" y="464" text-anchor="end" font-size="13" fill="#374151">stacked (1; DROP...)</text>
+  </g>
+
+  <text x="60" y="472" font-size="11" fill="#6b7280">5-fold CV pool (GroupKFold theo family): train không chứa cùng family với test — mutation "anh em" không được pha trộn giữa 2 tập.</text>
+</svg>

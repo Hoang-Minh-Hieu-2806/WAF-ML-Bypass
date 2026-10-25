@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" font-family="Segoe UI, Arial, sans-serif">
+  <rect width="760" height="420" fill="#fffcf7"/>
+  <text x="380" y="30" text-anchor="middle" font-size="17" font-weight="bold" fill="#333">Bypass matrix: CRS decisions theo Paranoia Level (26 case SQLi)</text>
+  <text x="380" y="52" text-anchor="middle" font-size="11" fill="#777">Run 20261025T182650Z-4e5c2027 — 15 malicious + 11 benign; n=78 lượt (26 case × PL1–3)</text>
+  <!-- trục: y=86 (100%)今 baseline=350, thang 264px -->
+  <line x1="70" y1="86" x2="70" y2="350" stroke="#999"/>
+  <line x1="70" y1="350" x2="720" y2="350" stroke="#999"/>
+  <line x1="70" y1="218" x2="720" y2="218" stroke="#e0e0e0" stroke-dasharray="4 4"/>
+  <text x="66" y="222" text-anchor="end" font-size="10" fill="#666">50%</text>
+  <text x="66" y="90" text-anchor="end" font-size="10" fill="#666">100%</text>
+  <!-- PL1: mal 86.7% (h=228.9, y=121.1), benign 9.1% (h=24.0, y=326.0) -->
+  <rect x="120" y="121.1" width="60" height="228.9" fill="#b22222"/>
+  <rect x="188" y="326.0" width="60" height="24.0" fill="#f0a30a"/>
+  <!-- PL2: identical PL1 -->
+  <rect x="300" y="121.1" width="60" height="228.9" fill="#b22222"/>
+  <rect x="368" y="326.0" width="60" height="24.0" fill="#f0a30a"/>
+  <!-- PL3: mal 100% (h=264), benign 72.7% (h=191.9, y=158.1) -->
+  <rect x="480" y="86" width="60" height="264" fill="#b22222"/>
+  <rect x="548" y="158.1" width="60" height="191.9" fill="#f0a30a"/>
+  <!-- nhãn giá trị -->
+  <text x="150" y="113" text-anchor="middle" font-size="11" fill="#b22222">86.7%</text>
+  <text x="218" y="320" text-anchor="middle" font-size="11" fill="#a07000">9.1%</text>
+  <text x="330" y="113" text-anchor="middle" font-size="11" fill="#b22222">86.7%</text>
+  <text x="398" y="320" text-anchor="middle" font-size="11" fill="#a07000">9.1%</text>
+  <text x="510" y="78" text-anchor="middle" font-size="11" fill="#b22222">100%</text>
+  <text x="578" y="150" text-anchor="middle" font-size="11" fill="#a07000">72.7%</text>
+  <!-- nhãn trục x -->
+  <text x="184" y="372" text-anchor="middle" font-size="12" fill="#333">PL1 (n=26)</text>
+  <text x="364" y="372" text-anchor="middle" font-size="12" fill="#333">PL2 (n=26)</text>
+  <text x="544" y="372" text-anchor="middle" font-size="12" fill="#333">PL3 (n=26)</text>
+  <!-- chú giải -->
+  <rect x="120" y="392" width="14" height="14" fill="#b22222"/>
+  <text x="140" y="404" font-size="11" fill="#333">Malicious bị block (CRS)</text>
+  <rect x="300" y="392" width="14" height="14" fill="#f0a30a"/>
+  <text x="320" y="404" font-size="11" fill="#333">Benign bị block (FPR)</text>
+  <text x="720" y="404" text-anchor="end" font-size="10" fill="#555">true_bypass 0/15 mọi PL; recalled SQL-family 10/10 mọi PL</text>
+</svg>

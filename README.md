@@ -568,7 +568,9 @@ và [báo cáo baseline](report/waf-crs-baseline.md). Corpus, runner và evidenc
 SQLite được giữ riêng với kết quả của backend Flask/MySQL.
 
 **Lab tích hợp:** 4 service từ `feature/docker`, CRS blocking + JSON audit,
-application evidence có correlation ID. ML `/score` hiện vẫn là regex stub.
+application evidence có correlation ID. ML `/score` chạy model học máy
+lr-tfidf-1.0 (F1 0.9076 trên test n=312). Bypass SQLi 4 nhóm có runner
+`scripts/run_experiment.py` + evidence `results/raw/experiments/`.
 Xem [Quick Start PowerShell](docs/quickstart-lab.md) để dựng lab và chạy
 `python waf-crs/run_integrated_smoke.py` kiểm chứng PL1.
 [Kết quả tích hợp PL1–PL3](report/crs-docker-integration.md) được lưu riêng với
@@ -1027,9 +1029,9 @@ Repository này thể hiện các kỹ năng phục vụ CV:
 
 - [ ] Finalize system architecture (còn chốt ML enforcement path trước tuần 07 — xem `docs/architecture.md`)
 - [ ] Prepare ML dataset
-- [ ] Implement ML-WAF (tuần 05–06; thay regex stub, giữ nguyên contract `/score`)
+- [x] Implement ML-WAF (tuần 05–06; model lr-tfidf-1.0, giữ nguyên contract `/score`)
 - [ ] Bypass experiments HPP / double-encoding / case-comment / parsing-discrepancy (tuần 07–10)
-- [ ] Build automated testing pipeline (`scripts/run_experiment.py`)
+- [x] Build automated testing pipeline (`scripts/run_experiment.py` — corpus 26 case, matrix PL1–3)
 - [ ] Analyze results
 - [ ] CRS hardening
 - [ ] Final report

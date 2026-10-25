@@ -228,6 +228,12 @@ logs/**
 results/**
 !results/**/
 !results/**/.gitkeep
+# Exception: artifact báo cáo đã tổng hợp (bảng số liệu + SVG) track Git;
+# raw logs / run dumps vẫn bỏ qua (results/raw/** ẩn theo `results/**`).
+!results/tables/
+!results/tables/**
+!results/graphs/
+!results/graphs/**
 
 # -----------------------------------------------------------------------------
 # Docker — local runtime only (Dockerfiles & compose configs stay tracked)
