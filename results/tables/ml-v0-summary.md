@@ -66,11 +66,13 @@ Trạng thái: **regex stub đã bị thay bằng model học máy chạy thật
 
 1. v0 là dataset **nhỏ, tự sinh** — nhiều families chỉ có 5–8 mẫu; số con số trên
    chỉ chứng minh pipeline đúng, **không** là benchmark so sánh với CRS.
-2. So sánh CRS vs ML cần đo **end-to-end qua đường chặn** — hiện `waf-ml` vẫn
-   chỉ là **scoring API song song**, không nằm trong đường chặn request; proxy
-   enforcement chờ chốt trước tuần 07. Trong bypass matrix 25/10 (`../tables/bypass-matrix-20261025.md`),
-   ML chỉ được gọi evaluation-only bên cạnh CRS (TP 15/15, FP 0/11 trên 26 case) —
-   không phải mô hình chặn inline.
+2. Proxy enforcement đã được merge 26/10/2026 sau run v0 này (từ
+   `feature/ml-enforcement-report-audit`). Các số trong bảng này vẫn là kết quả
+   classifier **OOF**, không thay đổi; đo end-to-end qua đường chặn phải chạy lại
+   `scripts/run_experiment.py` — không được hồi tố số classifier thành số WAF.
+   Bảng block/bypass/FPR enforcement nằm ở `../tables/ml-enforcement-matrix-20261026.md`
+   (CRS-only/ML-only/hybrid; ML evaluation-only 25/10: TP 15/15, FP 0/11 trên
+   26 case — `../tables/bypass-matrix-20261025.md`).
 3. Chưa chống XSS (corpus SQLi-only) và chưa có vòng mutation tự tối ưu như
    WAF-A-MoLE — đó là giai đoạn 2 sau giữa kỳ.
 

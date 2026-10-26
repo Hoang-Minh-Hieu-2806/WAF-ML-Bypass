@@ -21,7 +21,8 @@ docker compose up -d --build --wait --wait-timeout 240
 docker compose ps
 ```
 
-Port mặc định: backend `127.0.0.1:8080`, CRS `127.0.0.1:8081`, ML scoring API
+Port mặc định: backend `127.0.0.1:8080`, CRS `127.0.0.1:8081`, ML enforcement
+proxy + scoring API
 `127.0.0.1:8082`. DB không publish port. Các port có thể đổi trong `.env`.
 
 ## Kiểm chứng
@@ -32,12 +33,19 @@ curl.exe -i 'http://localhost:8081/search?q=test'
 curl.exe -i 'http://localhost:8081/product?id=1%20OR%201%3D1'
 curl.exe -s 'http://localhost:8082/health'
 echo '{"text":"1 OR 1=1"}' | curl.exe -s -X POST http://localhost:8082/score -H "Content-Type: application/json" -d "@-"
+curl.exe -i 'http://localhost:8082/search?q=laptop'
+curl.exe -i 'http://localhost:8082/product?id=1%20OR%201%3D1'
 python waf-crs/run_integrated_smoke.py
+# So sánh end-to-end CRS-only/ML-only trong cùng run:
+python scripts/run_experiment.py --levels 1 2 3
+# Run riêng chuỗi hybrid CRS -> ML -> app:
+python scripts/run_experiment.py --crs-backend ml --levels 1 2 3
 ```
 
-Kỳ vọng: health/benign 200, SQLi 403; `/score` trả nhãn từ model ML thật
-`lr-tfidf-1.0` (F1 0.9076 — OOF GroupKFold5 trên n=312, không phải held-out
-test set; giới hạn scoring API, chưa chặn inline). Runner
+Kỳ vọng: CRS health/benign 200 và SQLi 403. `/score` trả score của model thật
+`lr-tfidf-1.0` (F1 0.9076 — **OOF GroupKFold5 trên n=312**, không phải held-out
+test set). ML enforcement proxy cho benign qua backend và trả 403 cho SQLi
+có score ≥ `ML_THRESHOLD` (default 0.5). Runner
 `scripts/run_experiment.py` kiểm chứng thêm direct controls,
 audit SQLi `942xxx`, inbound block `949110` và application evidence. Mỗi run
 có snapshot/metadata/CSV/summary riêng tại `results/raw/crs-integrated/`.
@@ -65,13 +73,15 @@ Các test app dùng database mock; smoke runner mới kiểm chứng MySQL thậ
 ## Logs và dữ liệu
 
 - WAF JSON: `logs/waf/integrated/audit.log`.
+- ML JSONL: `logs/waf-ml/integrated/ml.jsonl`.
 - App JSONL: `logs/application/integrated/app.jsonl`; stdout SQL vẫn có.
 - `.env`, logs và raw results không commit. Không lưu Compose config đầy đủ
   hoặc container environment vào evidence vì có thể chứa mật khẩu `.env`.
 - ML `/score` chạy model lr-tfidf-1.0 (train thật trong container); đánh giá
   **OOF validation** n=312 GroupKFold5: F1 0.9076, FPR 1.68% —
-  `results/tables/ml-v0-summary.md`. ML chỉ là scoring API (`:8082`), **không
-  nằm trong đường chặn request** — compose forward trực tiếp `waf-crs → web-app:5000`.
+  `results/tables/ml-v0-summary.md`. Từ 26/10/2026 các route ứng dụng trên
+  `:8082` là **enforcement proxy** (`CRS → ML → web-app` khi chạy hybrid;
+  mặc định compose vẫn CRS-only `waf-crs → web-app:5000`).
 
 ## Dừng và rollback
 

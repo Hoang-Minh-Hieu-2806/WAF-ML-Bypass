@@ -1,7 +1,7 @@
 # =============================================================================
 # T03 — ML-based WAF & Evasion Techniques
 # Lab local 4 service: web-app (Flask) + waf-crs (ModSecurity+CRS) +
-#                      waf-ml (FastAPI stub) + db (mysql:8.4 LTS)
+#                      waf-ml (scoring + enforcement proxy) + db (mysql:8.4 LTS)
 # Owner deployment: Hoàng Minh Hiếu (feature/docker)
 # Rule/model thuộc về Huy (waf-crs/) và Hoàng (waf-ml/) — không sửa trong file này
 # khi chưa review nhóm.
@@ -69,7 +69,7 @@ services:
       - ./logs/waf/integrated:/var/log/crs-integrated
     env_file: .env
     environment:
-      BACKEND: http://web-app:5000
+      BACKEND: ${CRS_BACKEND:-http://web-app:5000}
       PORT: "8080"
       SERVER_NAME: localhost
       BLOCKING_PARANOIA: "${CRS_PL:-${PARANOIA:-1}}"
@@ -109,12 +109,19 @@ services:
     container_name: waf-ml
     env_file: .env
     environment:
-      MODEL_VERSION: ${MODEL_VERSION:-stub-0.1}
       PORT: "5001"
+      ML_BACKEND: http://web-app:5000
+      ML_THRESHOLD: ${ML_THRESHOLD:-0.5}
+      ML_EVIDENCE_LOG: /evidence/ml.jsonl
+    volumes:
+      - ./logs/waf-ml/integrated:/evidence
     ports:
       - "127.0.0.1:${WAF_ML_PORT:-8082}:5001"
     networks:
       - webnet
+    depends_on:
+      web-app:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5001/health')\""]
       interval: 10s

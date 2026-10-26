@@ -5,10 +5,14 @@ Lab local gồm bốn service từ `feature/docker` và module CRS đã tích h�
 ```text
 Client -> 127.0.0.1:8081 -> waf-crs:8080 -> web-app:5000 -> db:3306
 Client -> 127.0.0.1:8080 ----------------> web-app:5000   (direct control)
-Client -> 127.0.0.1:8082 -> waf-ml:5001/score            (model lr-tfidf-1.0)
+Client -> 127.0.0.1:8082 -> waf-ml:5001 -> web-app:5000 -> db:3306
+                              └─ /score (contract API)
 ```
 
-`waf-ml` là scoring API chạy model lr-tfidf-1.0 (LogisticRegression + TF-IDF n-gram ký tự, train trong container; F1 0.9076 / FPR 0.0168 — OOF validation GroupKFold5 group=family trên n=312 — results/tables/ml-v0-summary.md). Chưa phải enforcement proxy — đó là kế hoạch tuần 07. MySQL không publish port ra host;
+`waf-ml` chạy model lr-tfidf-1.0 (LogisticRegression + TF-IDF n-gram ký tự,
+train trong container; F1 0.9076 / FPR 0.0168 — OOF validation GroupKFold5
+group=family trên n=312). `/score` giữ contract; route ứng dụng được chấm rồi
+block/forward end-to-end với threshold cấu hình. MySQL không publish port ra host;
 các HTTP port chỉ bind loopback. Bridge Docker không chặn outbound Internet.
 
 ## Cấu hình CRS
@@ -48,19 +52,12 @@ Nó có log `logs/*/crs/` và output `results/raw/crs/`, độc lập với lab 
 Lab MySQL dùng corpus smoke riêng gồm 3 benign + 3 SQLi; output nằm trong
 `results/raw/crs-integrated/`. Không gộp hai corpus/backend vào cùng bảng metric.
 
-## ML enforcement path — đề xuất, chờ review nhóm
+## ML enforcement path — đã triển khai
 
-`waf-ml` hiện chỉ là scoring API song song (`POST /score`), chưa có đường chặn
-request, nên "ML-WAF bypass rate" chưa đo được end-to-end. Đề xuất chốt trước
-tuần 07 (khi bắt đầu bypass experiments), hai phương án:
-
-1. **Proxy nhỏ trong `waf-ml` (ưu tiên):** thêm port nội bộ nhận request, gọi
-   model, `allow` → forward `web-app:5000`, `block` → trả 403. Không thêm
-   service mới, tái dùng image `waf-ml`, giữ nguyên contract `/score`.
-2. **Gateway `nginx auth_request`:** một image gateway mới gọi `/score` nội bộ
-   trước khi proxy tới web-app. Linh hoạt hơn nhưng thêm service và cấu hình.
-
-Cả hai phương án không đổi schema test-case hay interface runner: runner vẫn
-gửi request tới một port WAF và đọc `waf decision + rule/ml evidence` như CRS.
-Cần Hoàng ML và Hoàng auto review trước khi đưa vào `docker-compose.yml`;
-chưa chốt thì không thêm gì vào compose.
+Phương án proxy nhỏ trong `waf-ml` đã được chọn để không thêm service. Proxy
+giữ raw request khi forward; model chỉ đọc projection của query/form/body để
+scoring. Threshold mặc định 0.5 (`ML_THRESHOLD`), backend nội bộ là
+`http://web-app:5000`. Runner đọc evidence theo correlation ID và tính block,
+true bypass, FPR, latency riêng cho ML; không suy block từ nhãn `/score` nữa.
+Đặt `CRS_BACKEND=http://waf-ml:5001` để chạy chuỗi hybrid
+`CRS -> ML -> web-app`; mặc định vẫn là CRS-only để giữ baseline cũ.
