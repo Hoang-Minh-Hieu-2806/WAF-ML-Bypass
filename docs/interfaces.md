@@ -43,7 +43,7 @@ ghi `results/raw/*.csv|json` gồm: `waf decision, http status, app behavior, ru
   SQLi detection dùng `942xxx`; rule match khác với quyết định chặn.
 * Mỗi experiment phải đối chiếu được: `request -> CRS decision -> ML decision -> app behavior`.
 
-## 3. ML scoring API (Hoàng ML implement, Hiếu deploy)
+## 3. ML scoring + enforcement API (Hoàng ML implement, Hiếu deploy)
 
 ```text
 POST http://waf-ml:5001/score        (nội bộ)
@@ -55,8 +55,15 @@ Content-Type: application/json
 GET /health -> {"status":"ok","model_version":"..."}
 ```
 
-Stub hiện tại dùng regex (`union/select/or 1=1/--/#/script`) để trả nhãn.
-Tuần 05-06 thay bằng `TF-IDF + LogisticRegression/SVM`, giữ nguyên JSON keys.
+Model hiện tại là `lr-tfidf-1.0` (`TF-IDF char n-gram + LogisticRegression`);
+fallback regex chỉ dùng khi artifact không nạp được. JSON keys của `/score`
+được giữ nguyên.
+
+Các route ứng dụng (`/search`, `/product`, `/login`) trên port ML là enforcement
+proxy. Proxy chấm cùng model, `score >= ML_THRESHOLD` trả 403; request còn lại
+được forward nguyên raw query/body tới `ML_BACKEND`. Response có
+`X-ML-Decision`, `X-ML-Score`, `X-ML-Model-Version`; evidence JSONL nằm tại
+`logs/waf-ml/integrated/ml.jsonl`. Duplicate parameters không bị dựng lại.
 
 ## 4. Ranh giới thư mục
 
@@ -72,7 +79,8 @@ Tuần 05-06 thay bằng `TF-IDF + LogisticRegression/SVM`, giữ nguyên JSON k
 Runner CRS dùng `request.method/path/params/form`; `params` và `form` là danh
 sách cặp theo thứ tự, bảo toàn duplicate keys. Từ 19/10 mục 1 dùng cùng dạng cặp
 nên runner nhóm chỉ cần adapter bóc lớp `request` khi đọc corpus CRS, không ép
-danh sách cặp thành JSON object khi thử HPP. Runner nhóm chưa được implement ở đây.
+danh sách cặp thành JSON object khi thử HPP. Runner hiện đo CRS và ML enforcement
+end-to-end trên cùng direct-control oracle.
 
 `semantic_effect` trên MySQL là có user ID ngoài kết quả query bind-parameter
 tham chiếu trên cùng connection. SQL error/echo/HTTP 200 không đủ chứng minh

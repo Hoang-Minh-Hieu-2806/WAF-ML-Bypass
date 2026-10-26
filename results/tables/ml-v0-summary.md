@@ -62,9 +62,9 @@ Trạng thái: **regex stub đã bị thay bằng model học máy chạy thật
 
 1. v0 là dataset **nhỏ, tự sinh** — nhiều families chỉ có 5–8 mẫu; số con số trên
    chỉ chứng minh pipeline đúng, **không** là benchmark so sánh với CRS.
-2. So sánh CRS vs ML cần đo **end-to-end qua đường chặn** — `waf-ml` hiện vẫn
-   chỉ là scoring API (proxy enforcement chờ chốt trước tuần 07);
-   bypass experiments tuần 07+: request chạy qua CRS và gọi `/score`; ML không đứng đột.
+2. Proxy enforcement đã được thêm sau run v0 này. Các số trong bảng này vẫn là
+   kết quả classifier OOF; cần chạy lại `scripts/run_experiment.py` để tạo bảng
+   block/bypass/FPR end-to-end mới, không được hồi tố số classifier thành số WAF.
 3. Chưa chống XSS (corpus SQLi-only) và chưa có vòng mutation tự tối ưu như
    WAF-A-MoLE — đó là giai đoạn 2 sau giữa kỳ.
 

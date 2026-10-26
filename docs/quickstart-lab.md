@@ -21,7 +21,7 @@ docker compose up -d --build --wait --wait-timeout 240
 docker compose ps
 ```
 
-Port mặc định: backend `127.0.0.1:8080`, CRS `127.0.0.1:8081`, ML stub
+Port mặc định: backend `127.0.0.1:8080`, CRS `127.0.0.1:8081`, ML enforcement
 `127.0.0.1:8082`. DB không publish port. Các port có thể đổi trong `.env`.
 
 ## Kiểm chứng
@@ -32,11 +32,18 @@ curl.exe -i 'http://localhost:8081/search?q=test'
 curl.exe -i 'http://localhost:8081/product?id=1%20OR%201%3D1'
 curl.exe -s 'http://localhost:8082/health'
 echo '{"text":"1 OR 1=1"}' | curl.exe -s -X POST http://localhost:8082/score -H "Content-Type: application/json" -d "@-"
+curl.exe -i 'http://localhost:8082/search?q=laptop'
+curl.exe -i 'http://localhost:8082/product?id=1%20OR%201%3D1'
 python waf-crs/run_integrated_smoke.py
+# So sánh end-to-end CRS-only/ML-only trong cùng run:
+python scripts/run_experiment.py --levels 1 2 3
+# Run riêng chuỗi hybrid CRS -> ML -> app:
+python scripts/run_experiment.py --crs-backend ml --levels 1 2 3
 ```
 
-Kỳ vọng: health/benign 200, SQLi 403; ML stub trả `malicious`/0.9 cho payload SQLi
-(model lr-tfidf-1.0 thật — F1 0.9076 trên test n=312). Runner `scripts/run_experiment.py` kiểm chứng thêm direct controls,
+Kỳ vọng: CRS health/benign 200 và SQLi 403; ML `/score` trả score của
+`lr-tfidf-1.0`; ML enforcement cho benign qua backend và trả 403 cho SQLi.
+Runner `scripts/run_experiment.py` kiểm chứng thêm direct controls,
 audit SQLi `942xxx`, inbound block `949110` và application evidence. Mỗi run
 có snapshot/metadata/CSV/summary riêng tại `results/raw/crs-integrated/`.
 Đây là smoke corpus 6 case; không thay thế bảng baseline SQLite hoặc benchmark.
@@ -63,6 +70,7 @@ Các test app dùng database mock; smoke runner mới kiểm chứng MySQL thậ
 ## Logs và dữ liệu
 
 - WAF JSON: `logs/waf/integrated/audit.log`.
+- ML JSONL: `logs/waf-ml/integrated/ml.jsonl`.
 - App JSONL: `logs/application/integrated/app.jsonl`; stdout SQL vẫn có.
 - `.env`, logs và raw results không commit. Không lưu Compose config đầy đủ
   hoặc container environment vào evidence vì có thể chứa mật khẩu `.env`.

@@ -1,8 +1,8 @@
 """T03 — Experimental runner cho corpus bypass (docs/interfaces.md §1).
 
-Đối tượng đo: CRS PL1–PL3 + ML-WAF (chế độ đánh giá, POST /score) trên cùng
+Đối tượng đo: CRS PL1–PL3 + ML-WAF enforcement proxy trên cùng
 corpus 4 nhóm kỹ thuật; chuỗi evidence mỗi case:
-request -> CRS decision -> ML score -> app behavior (direct control oracle).
+request -> {CRS decision | ML decision} -> app behavior (direct control oracle).
 
 Định nghĩa outcome per case:
   direct control:
@@ -18,9 +18,11 @@ request -> CRS decision -> ML score -> app behavior (direct control oracle).
       không thực thi — không phải bypass) / benign_blocked
     transport_error / missing_audit / unclassified = incomplete, xóa khỏi
       các mẫu số, giữ trong results.json để điều tra.
-  ML:
-    "TP/FP" chỉ nghĩa ở tầng classifier (app không gọi ML block).
-    Do đó không bao giờ gộp ML vào block-rate CRS end-to-end.
+  ML enforcement:
+    blocked = 403 + ML evidence decision=blocked + không có app record.
+    allowed = 200 + ML evidence decision=allowed + app record.
+    true_bypass = malicious/exploitable + ML allow + semantic effect.
+    Metrics ML và CRS được báo riêng, cùng dùng một direct-control oracle.
 
 Evidence: results/raw/experiments/<run-id>/ — plN-{audit,app,responses}.json,
 results.json aggiuntivo, results.csv, summary.json, metadata.json (run id,
@@ -31,6 +33,7 @@ không đè evidence cũ.
 Lệnh (PowerShell từ root repo):
   $env:PYTHONUTF8='1'
   python scripts/run_experiment.py --levels 1 2 3
+  python scripts/run_experiment.py --crs-backend ml --levels 1 2 3
   python scripts/run_experiment.py --technique hpp --levels 1
   python scripts/run_experiment.py --skip-ml
 """
@@ -38,6 +41,7 @@ import argparse
 import csv
 import hashlib
 import json
+import math
 import os
 import platform
 import subprocess
@@ -54,6 +58,7 @@ ROOT = Path(__file__).resolve().parents[1]
 COMPOSE = ["docker", "compose", "-f", str(ROOT / "docker-compose.yml")]
 AUDIT = ROOT / "logs/waf/integrated/audit.log"
 APP = ROOT / "logs/application/integrated/app.jsonl"
+ML_LOG = ROOT / "logs/waf-ml/integrated/ml.jsonl"
 DEFAULT_CORPUS = ROOT / "dataset/bypass"
 TECHNIQUES = ("hpp", "double-encoding", "case-comment", "parsing-discrepancy")
 
@@ -200,18 +205,6 @@ def audit_id(record):
     return next((v for k, v in headers.items() if k.lower() == "x-lab-case-id"), None)
 
 
-def ml_score(ml_base, text):
-    request = Request(ml_base + "/score",
-                      data=json.dumps({"text": text}).encode("utf-8"),
-                      headers={"Content-Type": "application/json"}, method="POST")
-    try:
-        with CLIENT.open(request, timeout=10) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except Exception as exc:
-        return {"label": None, "score": None, "model_version": None,
-                "error": f"{type(exc).__name__}: {exc}"}
-
-
 def control_check(direct_evidence, expected_effect):
     """Trả về (valid, evidence) — bằng chứng đến từ app.jsonl (oracle app-side).
 
@@ -236,7 +229,24 @@ def summarize(rows):
     blocked = sum(r.get("waf_decision") == "blocked" for r in valid_mal)
     bypass = sum(r.get("true_bypass") is True for r in valid_mal)
     fp = sum(r.get("waf_decision") == "blocked" for r in valid_ben)
+    ml_blocked = sum((r.get("ml_enforcement") or {}).get("decision") == "blocked"
+                     for r in valid_mal)
+    ml_bypass = sum((r.get("ml_enforcement") or {}).get("true_bypass") is True
+                    for r in valid_mal)
+    ml_fp = sum((r.get("ml_enforcement") or {}).get("decision") == "blocked"
+                for r in valid_ben)
     pct = lambda count, total: round(100 * count / total, 2) if total else None
+    def latency_stats(field):
+        values = sorted(float(r[field]) for r in rows if r.get(field) is not None)
+        if not values:
+            return {"median_ms": None, "p95_ms": None}
+        middle = len(values) // 2
+        median = (values[middle] if len(values) % 2 else
+                  (values[middle - 1] + values[middle]) / 2)
+        rank = max(0, math.ceil(0.95 * len(values)) - 1)
+        return {"median_ms": round(median, 3), "p95_ms": round(values[rank], 3)}
+    crs_latency = latency_stats("latency_ms")
+    ml_latency = latency_stats("ml_latency_ms")
     return {
         "malicious_total": len(valid_mal), "benign_total": len(valid_ben),
         "malicious_detected": detected, "malicious_blocked": blocked,
@@ -246,8 +256,17 @@ def summarize(rows):
         "fnr_detection_pct": pct(len(valid_mal) - detected, len(valid_mal)),
         "fpr_blocking_pct": pct(fp, len(valid_ben)),
         "bypass_rate_pct": pct(bypass, len(valid_mal)),
-        "ml_tp": sum((r.get("ml") or {}).get("label") == "malicious" for r in valid_mal),
-        "ml_fp": sum((r.get("ml") or {}).get("label") == "malicious" for r in valid_ben),
+        "ml_tp": ml_blocked, "ml_fp": ml_fp,
+        "ml_malicious_blocked": ml_blocked,
+        "ml_true_bypasses": ml_bypass,
+        "ml_benign_blocked": ml_fp,
+        "ml_block_rate_pct": pct(ml_blocked, len(valid_mal)),
+        "ml_bypass_rate_pct": pct(ml_bypass, len(valid_mal)),
+        "ml_fpr_blocking_pct": pct(ml_fp, len(valid_ben)),
+        "crs_latency_median_ms": crs_latency["median_ms"],
+        "crs_latency_p95_ms": crs_latency["p95_ms"],
+        "ml_latency_median_ms": ml_latency["median_ms"],
+        "ml_latency_p95_ms": ml_latency["p95_ms"],
         "inconclusive": sum(r.get("outcome") in ("pass_without_effect",)
                             for r in rows),
         "incomplete": sum(r.get("outcome") in ("transport_error", "missing_audit",
@@ -287,6 +306,19 @@ def load_corpus(corpus_root, only_technique=None):
                 raise RuntimeError(f"Case method invalid: {case['id']}")
             if case["path"] not in ("/search", "/product", "/login"):
                 raise RuntimeError(f"Case path không thuộc lab: {case['id']}")
+            for field in ("params", "form"):
+                pairs = case.get(field, [])
+                if (not isinstance(pairs, list)
+                        or any(not isinstance(pair, list) or len(pair) != 2
+                               or not all(isinstance(value, str) for value in pair)
+                               for pair in pairs)):
+                    raise RuntimeError(f"{case['id']}.{field} must be ordered [key,value] pairs")
+            if not isinstance(case.get("headers", {}), dict):
+                raise RuntimeError(f"{case['id']}.headers must be an object")
+            if case.get("transport") not in (None, "chunked"):
+                raise RuntimeError(f"Unsupported transport: {case['id']}")
+            if case.get("control") not in (None, "none"):
+                raise RuntimeError(f"Unsupported control policy: {case['id']}")
             cases.append(case)
     ids = [case["id"] for case in cases]
     if len(ids) != len(set(ids)):
@@ -305,7 +337,6 @@ def run_level(level, cases, out, metadata, env, skip_ml=False):
     waf_port = loopback_port("waf-crs", 8080, env)
     app_port = loopback_port("web-app", 5000, env)
     ml_port = loopback_port("waf-ml", 5001, env)
-    ml_base = f"http://127.0.0.1:{ml_port}"
 
     effective = command(COMPOSE + ["exec", "-T", "waf-crs", "sh", "-c",
                                    "nginx -v 2>&1; cat /etc/modsecurity.d/modsecurity.conf; "
@@ -333,6 +364,7 @@ def run_level(level, cases, out, metadata, env, skip_ml=False):
 
     audit_offset = AUDIT.stat().st_size if AUDIT.exists() else 0
     app_offset = APP.stat().st_size if APP.exists() else 0
+    ml_offset = ML_LOG.stat().st_size if ML_LOG.exists() else 0
 
     rows = []
     for case in cases:
@@ -342,6 +374,7 @@ def run_level(level, cases, out, metadata, env, skip_ml=False):
         # biến thể (chunked...) như corpus mô tả.
         direct = send(app_port, case, correlation + "-direct")
         via_waf = deliver(waf_port, case, correlation)
+        via_ml = None if skip_ml else deliver(ml_port, case, correlation + "-ml")
         ml_text = " ".join(value for _, value in
                            (case.get("params", []) + case.get("form", []))) or ""
         rows.append({
@@ -349,7 +382,11 @@ def run_level(level, cases, out, metadata, env, skip_ml=False):
             "case_id": case["id"], "technique": case["technique"],
             "label": case["label"], "transport": case.get("transport") or "standard",
             "request": case, "ml_text": ml_text,
-            "ml": {} if skip_ml else ml_score(ml_base, ml_text),
+            "ml": {},
+            "ml_http_status": None if skip_ml else via_ml["status"],
+            "ml_latency_ms": None if skip_ml else via_ml["latency_ms"],
+            "ml_response_body": "" if skip_ml else via_ml["body"],
+            "ml_error": None if skip_ml else via_ml.get("error"),
             "direct_response": direct, "http_status": via_waf["status"],
             "latency_ms": via_waf["latency_ms"],
             "wire": {"url": via_waf["raw_url"], "body": via_waf["raw_body"],
@@ -361,8 +398,10 @@ def run_level(level, cases, out, metadata, env, skip_ml=False):
     deadline = time.monotonic() + 30
     while True:
         audits, apps = lines_since(AUDIT, audit_offset), lines_since(APP, app_offset)
+        ml_records = [] if skip_ml else lines_since(ML_LOG, ml_offset)
         audit_map = {audit_id(a): a for a in audits if audit_id(a)}
         app_map = {a.get("case_id"): a for a in apps}
+        ml_map = {a.get("case_id"): a for a in ml_records}
         # Hoàn tất khi mỗi case có audit VÀ: nếu không bị chặn (400-series) thì
         # cuối cùng phải có app record; nếu bị chặn thì không cần đợi app.
         complete = all(
@@ -371,6 +410,11 @@ def run_level(level, cases, out, metadata, env, skip_ml=False):
              or (r["waf_error"]))
             and ((r["http_status"] not in (200,) and r["http_status"] is not None)
                  or (f"{metadata['run_id']}-pl{level}-{r['case_id']}" in app_map))
+            and (skip_ml
+                 or r["ml_error"]
+                 or (f"{metadata['run_id']}-pl{level}-{r['case_id']}-ml" in ml_map
+                     and (r["ml_http_status"] != 200
+                          or f"{metadata['run_id']}-pl{level}-{r['case_id']}-ml" in app_map)))
             for r in rows)
         if complete or time.monotonic() > deadline:
             break
@@ -388,6 +432,11 @@ def run_level(level, cases, out, metadata, env, skip_ml=False):
         audit = audit_map.get(cid)
         app_record = app_map.get(cid)
         row["app_evidence"] = app_record
+        ml_cid = cid + "-ml"
+        ml_record = ml_map.get(ml_cid) if not skip_ml else None
+        ml_app_record = app_map.get(ml_cid) if not skip_ml else None
+        hybrid_record = ml_map.get(cid) if metadata["crs_backend"] == "ml" else None
+        row["hybrid_ml_evidence"] = hybrid_record
         rule_ids = []
         row["detected"] = False
         if row["waf_error"] or row["http_status"] is None:
@@ -401,8 +450,12 @@ def run_level(level, cases, out, metadata, env, skip_ml=False):
         transaction = audit["transaction"]
         rule_ids = sorted({str(m.get("details", {}).get("ruleId", ""))
                            for m in transaction.get("messages", [])} - {""})
-        blocked = (row["http_status"] == 403 and "949110" in rule_ids
-                   and app_record is None)
+        crs_blocked = (row["http_status"] == 403 and "949110" in rule_ids
+                       and app_record is None)
+        hybrid_ml_blocked = (row["http_status"] == 403 and hybrid_record
+                             and hybrid_record.get("decision") == "blocked"
+                             and app_record is None)
+        blocked = crs_blocked or hybrid_ml_blocked
         allowed = (row["http_status"] == 200 and app_record is not None)
         if not (blocked or allowed):
             row["outcome"] = "unclassified"
@@ -413,7 +466,9 @@ def run_level(level, cases, out, metadata, env, skip_ml=False):
             if app_record else False
         row.update(detected=detected, rule_ids=rule_ids,
                    reached_app=app_record is not None,
-                   semantic_effect=effect)
+                   semantic_effect=effect,
+                   blocking_layer=("crs" if crs_blocked else
+                                   "ml" if hybrid_ml_blocked else None))
         if not valid_control:
             row["outcome"] = "control_invalid"
             row["waf_decision"] = "blocked" if blocked else "allowed"
@@ -434,11 +489,47 @@ def run_level(level, cases, out, metadata, env, skip_ml=False):
             row.setdefault("passed", True)
         else:
             row["outcome"], row["true_bypass"] = "unclassified", None
-        # ML là scoring API không block; tp ở tầng classifier.
+        if not skip_ml:
+            ml_result = {
+                "decision": None, "outcome": "unclassified", "true_bypass": None,
+                "http_status": row["ml_http_status"], "latency_ms": row["ml_latency_ms"],
+                "app_evidence": ml_app_record,
+            }
+            if ml_record:
+                ml_result.update({key: ml_record.get(key) for key in
+                                  ("label", "score", "threshold", "model_version", "error")})
+            ml_blocked = (row["ml_http_status"] == 403 and ml_record
+                          and ml_record.get("decision") == "blocked"
+                          and ml_app_record is None)
+            ml_allowed = (row["ml_http_status"] == 200 and ml_record
+                          and ml_record.get("decision") == "allowed"
+                          and ml_app_record is not None)
+            ml_effect = bool(ml_app_record and ml_app_record.get("semantic_effect"))
+            if row["ml_error"] or row["ml_http_status"] is None:
+                ml_result["outcome"] = "transport_error"
+            elif not ml_record:
+                ml_result["outcome"] = "missing_evidence"
+            elif ml_blocked:
+                ml_result.update(decision="blocked", outcome=(
+                    "blocked" if intended else "benign_blocked"), true_bypass=False)
+            elif ml_allowed:
+                if intended and ml_effect:
+                    ml_outcome, ml_true_bypass = "true_bypass", True
+                elif intended and not ml_effect:
+                    ml_outcome, ml_true_bypass = "pass_without_effect", False
+                else:
+                    ml_outcome, ml_true_bypass = "allowed", False
+                ml_result.update(decision="allowed", outcome=ml_outcome,
+                                 true_bypass=ml_true_bypass,
+                                 semantic_effect=ml_effect)
+            row["ml"] = ml_record or {}
+            row["ml_enforcement"] = ml_result
     (out / f"pl{level}-audit.json").write_text(json.dumps(audits, indent=2),
                                                encoding="utf-8")
     (out / f"pl{level}-app.json").write_text(json.dumps(apps, indent=2,
                                                         ensure_ascii=False), encoding="utf-8")
+    (out / f"pl{level}-ml.json").write_text(json.dumps(ml_records, indent=2,
+                                                       ensure_ascii=False), encoding="utf-8")
     (out / f"pl{level}-responses.json").write_text(json.dumps(rows, indent=2,
                                                               ensure_ascii=False), encoding="utf-8")
     return rows, {"paranoia_level": level, **summarize(rows)}
@@ -450,7 +541,11 @@ def main():
     parser.add_argument("--technique", choices=TECHNIQUES, default=None)
     parser.add_argument("--corpus", default=str(DEFAULT_CORPUS))
     parser.add_argument("--skip-ml", action="store_true")
+    parser.add_argument("--crs-backend", choices=("direct", "ml"), default="direct",
+                        help="direct: CRS->app; ml: CRS->ML enforcement->app")
     args = parser.parse_args()
+    if args.skip_ml and args.crs_backend == "ml":
+        parser.error("--skip-ml cannot be combined with --crs-backend ml")
 
     corpus_root = Path(args.corpus)
     cases = load_corpus(corpus_root, args.technique)
@@ -462,6 +557,8 @@ def main():
     out.mkdir(parents=True)
 
     env = os.environ.copy()
+    env["CRS_BACKEND"] = ("http://waf-ml:5001" if args.crs_backend == "ml"
+                          else "http://web-app:5000")
     try:
         commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True,
                                 capture_output=True, encoding="utf-8").stdout.strip() or None
@@ -470,6 +567,7 @@ def main():
 
     metadata = {
         "run_id": run_id, "levels": args.levels, "technique": args.technique,
+        "crs_backend": args.crs_backend,
         "corpus_files": corpus_files,
         "corpus_sha256": {p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
                           for p in corpus_files},
@@ -478,7 +576,7 @@ def main():
         "docker": command(["docker", "version"]),
         "compose": command(["docker", "compose", "version"]),
         "anomaly_inbound": 5, "seed": None,
-        "ml_mode": "evaluation-only (scoring API; không block end-to-end)" if not args.skip_ml
+        "ml_mode": "enforcement proxy (block/forward end-to-end)" if not args.skip_ml
         else "skipped",
         "source_sha256": {
             path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
@@ -502,6 +600,9 @@ def main():
              "http_status": r.get("http_status"),
              "ml_label": (r.get("ml") or {}).get("label"),
              "ml_score": (r.get("ml") or {}).get("score"),
+             "ml_decision": (r.get("ml_enforcement") or {}).get("decision"),
+             "ml_outcome": (r.get("ml_enforcement") or {}).get("outcome"),
+             "ml_true_bypass": (r.get("ml_enforcement") or {}).get("true_bypass"),
              "rule_ids": r.get("rule_ids", []), "transport": r.get("transport")}
             for r in level_rows]
         summaries.append(summary)
@@ -515,9 +616,11 @@ def main():
     with (out / "results.csv").open("w", newline="", encoding="utf-8") as stream:
         fields = ["run_id", "paranoia_level", "case_id", "technique", "label",
                   "outcome", "waf_decision", "detected", "reached_app",
-                  "semantic_effect", "true_bypass", "http_status", "latency_ms",
+                  "semantic_effect", "true_bypass", "blocking_layer",
+                  "http_status", "latency_ms",
                   "rule_ids", "ml_label", "ml_score", "ml_model_version",
-                  "transport"]
+                  "ml_decision", "ml_outcome", "ml_true_bypass",
+                  "ml_http_status", "ml_latency_ms", "transport"]
         writer = csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         for row in all_rows:
@@ -527,6 +630,9 @@ def main():
                 "ml_label": (row.get("ml") or {}).get("label"),
                 "ml_score": (row.get("ml") or {}).get("score"),
                 "ml_model_version": (row.get("ml") or {}).get("model_version"),
+                "ml_decision": (row.get("ml_enforcement") or {}).get("decision"),
+                "ml_outcome": (row.get("ml_enforcement") or {}).get("outcome"),
+                "ml_true_bypass": (row.get("ml_enforcement") or {}).get("true_bypass"),
             })
     print(json.dumps({"run_id": run_id, "levels": args.levels,
                       "summaries": summaries}, ensure_ascii=False), flush=True)

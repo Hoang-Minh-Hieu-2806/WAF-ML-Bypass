@@ -1,5 +1,9 @@
 # Implementation Status — audit thực địa (26/10/2026)
 
+> **Historical snapshot:** file này phản ánh trạng thái trước commit ML
+> enforcement/runner mới. Trạng thái hiện hành xem `README.md`,
+> `docs/architecture.md` và output của `scripts/run_experiment.py`.
+
 > Tự sinh bởi automated agent sau khi xác minh trực tiếp (không sao chép báo cáo cũ).
 > Cơ sở: `git status`, `git log`, `.gitignore`, `docs/*`, `docker-compose.yml`,
 > toàn bộ `waf-ml/*.py`, `waf-crs/run_baseline.py`, `run_integrated_smoke.py`,

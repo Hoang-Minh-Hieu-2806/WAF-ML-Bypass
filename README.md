@@ -593,7 +593,7 @@ cp .env.example .env
 docker compose up -d --build --wait --wait-timeout 240
 docker compose ps   # expect waf-app, waf-crs, waf-ml, waf-db healthy
 
-# Smoke test: 8080 = web-app trực tiếp, 8081 = qua CRS WAF, 8082 = ML scoring API
+# Smoke test: 8080 = web-app trực tiếp, 8081 = CRS WAF, 8082 = ML enforcement + /score
 curl -i "http://localhost:8081/search?q=test"                 # benign -> 200
 curl -i "http://localhost:8081/product?id=1%20OR%201%3D1"     # SQLi   -> 403
 curl -s http://localhost:8082/health
@@ -1027,10 +1027,10 @@ Repository này thể hiện các kỹ năng phục vụ CV:
 
 ### In Progress
 
-- [ ] Finalize system architecture (còn chốt ML enforcement path trước tuần 07 — xem `docs/architecture.md`)
-- [ ] Prepare ML dataset
+- [x] Finalize ML enforcement path (proxy block/forward, giữ `/score`)
+- [x] Prepare ML dataset v0 (312 synthetic samples, 16 families)
 - [x] Implement ML-WAF (tuần 05–06; model lr-tfidf-1.0, giữ nguyên contract `/score`)
-- [ ] Bypass experiments HPP / double-encoding / case-comment / parsing-discrepancy (tuần 07–10)
+- [x] Bypass experiments HPP / double-encoding / case-comment / parsing-discrepancy (26 cases)
 - [x] Build automated testing pipeline (`scripts/run_experiment.py` — corpus 26 case, matrix PL1–3)
 - [ ] Analyze results
 - [ ] CRS hardening

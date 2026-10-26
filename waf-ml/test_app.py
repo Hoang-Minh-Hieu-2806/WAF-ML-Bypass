@@ -83,6 +83,15 @@ class ScoreContract(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn(json.loads(body_text)["label"], ("benign", "malicious"))
 
+    def test_enforcement_allows_benign_and_blocks_sqli(self):
+        with urllib.request.urlopen(BASE + "/search?q=laptop", timeout=10) as response:
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.headers["X-ML-Decision"], "allowed")
+        with self.assertRaises(urllib.error.HTTPError) as blocked:
+            urllib.request.urlopen(BASE + "/product?id=1%20OR%201%3D1", timeout=10)
+        self.assertEqual(blocked.exception.code, 403)
+        self.assertEqual(blocked.exception.headers["X-ML-Decision"], "blocked")
+
 
 class FallbackStub(unittest.TestCase):
     """Khi model.joblib không nạp được, _predict phải dùng regex stub — contract không đổi."""
@@ -104,6 +113,20 @@ class FallbackStub(unittest.TestCase):
         if ml_app._pipeline is None:
             self.skipTest("model không nạp (fallback stub) — API vẫn phải hoạt động")
         self.assertEqual(list(ml_app._pipeline.classes_), ["benign", "malicious"])
+
+
+class EnforcementHelpers(unittest.TestCase):
+    def test_score_text_keeps_duplicate_values_in_order(self):
+        text = ml_app._score_text(
+            b"id=1+OR+1%3D1&id=2",
+            b"username=alice&password=lab-only",
+            "application/x-www-form-urlencoded",
+        )
+        self.assertEqual(text, "1 OR 1=1 2 alice lab-only")
+
+    def test_score_text_accepts_non_form_body(self):
+        text = ml_app._score_text(b"", b'{"query":"1 OR 1=1"}', "application/json")
+        self.assertEqual(text, '{"query":"1 OR 1=1"}')
 
 
 if __name__ == "__main__":
