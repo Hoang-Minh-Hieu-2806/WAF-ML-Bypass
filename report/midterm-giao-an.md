@@ -74,7 +74,7 @@ Map theo roadmap 12 tuần (tuần 1 bắt đầu 28/09/2026; hiện đang ở *
 | T07–08: HPP & Double-Encoding | ✅ **25/10 — trước kế hoạch:** corpus (3 ben + 3 mal HPP; 2 ben + 4 mal DE), runner, matrix PL1–3; phần "ML chặn" giờ đo được end-to-end qua proxy (hybrid CRS → ML → app) | `dataset/bypass/hpp/cases.json`, `dataset/bypass/double-encoding/cases.json`, `results/tables/bypass-matrix-20261025.md` |
 | T09: Case Variation + SQL Comment | ✅ **25/10:** 3 ben + 5 mal; CRS bắt 100% mọi PL (libinjection `942100` không phân biệt hoa-thường + `942270`) | `dataset/bypass/case-comment/cases.json` |
 | T10: Parsing Discrepancy | ✅ **25/10:** 3 ben + 3 mal; CRS chặn hết qua rule transport (920640/920170/920420) — **chưa đạt case true_bypass (kết quả âm có giá trị)** | `dataset/bypass/parsing-discrepancy/cases.json` |
-| T11: Tổng hợp & phân tích | 🔶 Sơ bộ: matrix PL1–3 + bảng per-technique + 4 SVG + bảng enforcement của branch Hoàng (chưa có evidence trong repo — sẽ tái lập độc lập); còn precision/recall per-technique và rule hotlist | `results/tables/*`, `results/graphs/*` |
+| T11: Tổng hợp & phân tích | 🔶 Sơ bộ: matrix PL1–3 + bảng per-technique + 4 SVG + bảng CRS/ML/hybrid **đã tái lập độc lập post-merge** (runs `2af841ab`, `4e4a7f2d`, commit `661aed6`); còn precision/recall per-technique và rule hotlist | `results/tables/*`, `results/graphs/*` |
 | T12: Hardening & báo cáo | 🔶 Sơ bộ — phân tích FP PL2/PL3 đã có; khuyến nghị exception chưa viết | mục FP trong `report/waf-crs-baseline.md` |
 
 **Ước tính tổng tiến độ: ~65% kế hoạch 12 tuần** — kết quả thực nghiệm (corpus 4 nhóm
@@ -124,6 +124,25 @@ family — **không phải** kết quả trên một held-out test set độc l�
 cuối cùng được fit trên toàn bộ n=312; corpus nhỏ, tự sinh nên chỉ chứng minh
 pipeline đúng, không phải benchmark production và **không so sánh trực tiếp 1-1
 với CRS** (khác protocol đo, tập mẫu và cách tính FPR).
+
+**D. ML enforcement + hybrid end-to-end (26/10 — post-merge, threshold 0.5)** —
+run tự tái lập `20261026T100537Z-2af841ab` (CRS/ML-only) +
+`20261026T100617Z-4e4a7f2d` (hybrid), commit `661aed6`; bảng chi tiết:
+`results/tables/ml-enforcement-matrix-20261026.md`:
+
+| Đường | PL1 block | PL2 block | PL3 block | FPR (9.1/9.1/72.7%) | True bypass |
+|---|---:|---:|---:|---|---:|
+| CRS-only | 13/15 (86.7%) | 13/15 | 15/15 | 1/1/8 trên 11 benign | 0/15 |
+| ML-only | 15/15 (100%) | 15/15 | 15/15 | **0/11 mọi PL** | 0/15 |
+| Hybrid CRS→ML | 15/15 | 15/15 | 15/15 | kế thừa CRS | 0/15 |
+
+Đọc bảng: hybrid giữ FPR của CRS (lớp CRS phía trước quyết định FP — PL3 72.7%
+không sửa được) nhưng vá được 2 case DE mà CRS cho qua không effect
+(`de-mal-002/003`, score 0.6295/0.6184, `blocking_layer="ml"`). ML-only là
+thế mạnh precision — FP 0/11, nhưng chỉ đánh giá model trên projection
+query/form của corpus này, chưa phải external holdout. Threshold sweep
+(0.30–0.80) trong bảng matrix; 0.5 tốt nhất trên corpus nhỏ này, chưa kết luận
+cho production.
 
 ---
 
@@ -213,11 +232,11 @@ raw query/body tới web-app, ngược lại trả 403 và ghi evidence JSONL. `
 vẫn giữ contract cũ. Runner đo đồng thời CRS-only và ML-only; tùy chọn
 `--crs-backend ml` dựng chuỗi hybrid `CRS → ML → web-app`.
 
-Run 26/10 (bảng từ branch của ĐVH — evidence raw chỉ có trên máy anh vì
-`results/raw/**` bị gitignore; đang tái lập độc lập post-merge, run ID mới sẽ
-thay ở đây): CRS/ML-only `20261026T065044Z-0b703072`; hybrid
-`20261026T065130Z-11223d9f`. Mỗi run 26 case × 3 PL, không có incomplete
-hoặc invalid control (bảng: `results/tables/ml-enforcement-matrix-20261026.md`).
+Run 26/10: có 2 nguồn — run gốc của ĐVH (evidence raw trên máy anh; see
+`results/tables/ml-enforcement-matrix-20261026.md`) và **bản tái lập độc lập
+post-merge trên máy Hiếu cùng commit `661aed6`**: CRS/ML-only
+`20261026T100537Z-2af841ab`, hybrid `20261026T100617Z-4e4a7f2d` — mọi số
+khớp chính xác. Mỗi run 26 case × 3 PL, không có incomplete hoặc invalid control.
 
 | Cấu hình | PL1 block/FPR | PL2 block/FPR | PL3 block/FPR | True bypass |
 |---|---:|---:|---:|---:|
@@ -341,14 +360,15 @@ Quy tắc bảo toàn kết quả: mỗi case luôn chạy 2 đường (direct +
 phải có `semantic_effect=true` ở direct control trước — không chấp nhận
 "bypass" chỉ vì `HTTP 200`.
 
-**Cập nhật 26/10:** corpus 26 case được chạy qua ML enforcement/hybrid (bảng
-từ `feature/ml-enforcement-report-audit` của ĐVH — evidence raw của anh nằm
-ngoài repo vì `results/raw/**` bị gitignore; nhóm sẽ tái lập độc lập post-merge
-và cập nhật run ID ở đây). Kết quả PL1–3 (theo bảng anh):
-bypass thật 0/15 mọi PL; CRS block 13/15 ở PL1–2 và 15/15 ở PL3; FPR
+**Cập nhật 26/10:** corpus 26 case được chạy qua ML enforcement/hybrid —
+run gốc của ĐVH + bản tái lập độc lập post-merge (commit `661aed6`):
+CRS/ML-only `20261026T100537Z-2af841ab`, hybrid `20261026T100617Z-4e4a7f2d`,
+mọi số khớp chính xác từng ô (bảng: `results/tables/ml-enforcement-matrix-20261026.md`).
+Kết quả PL1–3: bypass thật 0/15 mọi PL; CRS block 13/15 ở PL1–2 và 15/15 ở PL3; FPR
 benign 9.1% → 9.1% → **72.7%** (PL3 over-block bằng rule protocol 920230/920272/921180
-chứ không phải SQL-family); 2 case DE `pass_without_effect` (CRS decode 1 lượt —
-kết quả phủ định có giá trị đúng như bảng trên dự đoán).
+chứ không phải SQL-family); 2 case DE `pass_without_effect` ở CRS-only (CRS decode 1 lượt —
+kết quả phủ định có giá trị đúng như bảng trên dự đoán) và được hybrid ML chặn
+ở PL1–2 (score 0.6295/0.6184, `blocking_layer="ml"`).
 
 ### Q&A dự phòng (chuẩn bị trước)
 
@@ -371,7 +391,7 @@ kết quả phủ định có giá trị đúng như bảng trên dự đoán).
 |---|---|---|---|
 | 05–06 (✅ 25/10) | Dataset SQLi/benign → TF-IDF + LR → thay stub `/score` (giữ nguyên contract) — `lr-tfidf-1.0` F1 90.76%/FPR 1.68%, train-in-container | Đặng Văn Hoàng | `waf-ml/train.py` + `results/tables/ml-v0-summary.md` |
 | 05–06 (✅ 26/10) | Review cơ chế ML enforcement proxy (option 1) | Hiếu + ĐVH + Huỳnh | ✅ 26/10: proxy block/forward + evidence JSONL merge từ `feature/ml-enforcement-report-audit`; runner hỗ trợ CRS-only/ML-only/hybrid |
-| 07–08 | `run_experiment.py` + corpus HPP + double-encoding; chạy trên CRS **và** ML | Long + Huỳnh | ✅ 25/10: runner + corpus 26 case + matrix PL1–3 (bypass 0, FPR PL3 72.7%). Đo lại trên **ML enforcement path** qua proxy (hybrid) — post-merge sẽ có evidence độc lập |
+| 07–08 | `run_experiment.py` + corpus HPP + double-encoding; chạy trên CRS **và** ML | Long + Huỳnh | ✅ 25/10: runner + corpus 26 case + matrix PL1–3 (bypass 0, FPR PL3 72.7%); ✅ 26/10: đo lại trên **ML enforcement path** (CRS/ML-only/hybrid — runs `2af841ab`, `4e4a7f2d`, commit `661aed6`) |
 | 09 | corpus case/comment | Long | ✅ 25/10: 3 ben + 5 mal (cc-mal-004 fixed payload → effect true) |
 | 10 | corpus parsing-discrepancy (trích WAFFLED) | Long | ✅ 25/10: 3 ben + 3 mal; CRS chặn hết chunked/GET-body/CT-policy ở tầng transport (920640/920170/920420) — chưa đạt case "true bypass" (kết quả phủ định có giá trị) |
 | 11 | gộp kết quả, TPR/FPR/FNR, precision/recall/F1, threshold sweep, latency, bar chart, rule ID hotlist | Huỳnh | 🔶 sơ bộ: matrix PL1–3 + per-technique tables + 4 SVG + bảng CRS/ML/hybrid (26/10, ĐVH); còn precision/recall per-technique + rule hotlist + external holdout/tải lặp |

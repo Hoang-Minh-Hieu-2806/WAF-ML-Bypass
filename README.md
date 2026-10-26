@@ -572,7 +572,9 @@ SQLite được giữ riêng với kết quả của backend Flask/MySQL.
 **Lab tích hợp:** 4 service từ `feature/docker`, CRS blocking + JSON audit,
 application evidence có correlation ID. ML `/score` chạy model học máy
 lr-tfidf-1.0 (F1 0.9076 — OOF validation GroupKFold5 trên n=312, không phải
-held-out test set; scoring API, chưa nằm trong đường chặn). Bypass SQLi
+held-out test set). Từ 26/10/2026 các route ứng dụng trên `:8082` là
+**enforcement proxy** (block 403 / forward raw khi `score ≥ ML_THRESHOLD`;
+`/score` giữ contract cũ). Bypass SQLi
 4 nhóm có runner `scripts/run_experiment.py` + evidence
 `results/raw/experiments/`.
 Xem [Quick Start PowerShell](docs/quickstart-lab.md) để dựng lab và chạy

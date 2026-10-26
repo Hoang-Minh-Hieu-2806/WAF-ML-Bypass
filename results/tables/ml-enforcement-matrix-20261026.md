@@ -1,11 +1,27 @@
 # ML enforcement + hybrid matrix (26/10/2026)
 
-Authoritative runs:
+Authoritative runs (ĐVH, evidence raw trên máy anh — `results/raw/**` bị
+gitignore nên không vào repo):
 
 - CRS-only + ML-only: `20261026T065044Z-0b703072`.
 - Hybrid `CRS -> ML -> web-app`: `20261026T065130Z-11223d9f`.
 - Corpus: 26 cases (15 malicious, 11 benign) × PL1–3; mỗi run 78 lượt.
 - Cả hai run: `incomplete=0`, `control_invalid_total=0`, true bypass 0/15.
+
+## Tái lập độc lập post-merge (26/10/2026 — evidence trong repo local)
+
+Chạy lại sau merge `661aed6` trên máy Hiếu bằng chính runner của group,
+cùng corpus 26 case: mọi số bảng dưới đây **khớp chính xác** từng ô.
+
+- CRS-only + ML-only: `20261026T100537Z-2af841ab` (commit `661aed6`).
+- Hybrid `CRS -> ML -> web-app`: `20261026T100617Z-4e4a7f2d` (commit `661aed6`).
+- Mỗi run: `incomplete=0`, `control_invalid_total=0`, true bypass 0/15,
+  `ml_incomplete=0` (raw nằm local, gitignore theo quy ước; tái lập bằng
+  `python scripts/run_experiment.py [--crs-backend ml] --levels 1 2 3`).
+
+Threshold sweep (sweep_thresholds.py trên run `2af841ab`): TP/FP/F1/FPR tại
+0.30 = 15/1/96.77%/9.09%; 0.50 = 15/0/100%/0%; 0.60 = 13/0/92.86%/0% — khớp
+bảng trên; 0.80 = 8/0/69.57%/0% (bảng dưới ghi 69.56%, chênh làm tròn 69.574 → 69.57).
 
 ## End-to-end outcomes
 

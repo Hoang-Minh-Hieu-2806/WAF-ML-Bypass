@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN mkdir -p /app/artifacts
 # Tuần 05-06: train.py/build_dataset.py/server.py đi vào image;
 # server.py train trong container nếu artifacts trống (sklearn pin sẵn).
-COPY waf-ml/app.py waf-ml/build_dataset.py waf-ml/train.py waf-ml/server.py ./
+COPY waf-ml/app.py waf-ml/build_dataset.py waf-ml/train.py waf-ml/server.py waf-ml/test_app.py ./
 ENV ML_MODEL_DIR=/app/artifacts
 
 EXPOSE 5001
