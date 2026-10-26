@@ -158,8 +158,8 @@ raw query/body tới web-app, ngược lại trả 403 và ghi evidence JSONL. `
 vẫn giữ contract cũ. Runner đo đồng thời CRS-only và ML-only; tùy chọn
 `--crs-backend ml` dựng chuỗi hybrid `CRS → ML → web-app`.
 
-Run authoritative 26/10: CRS/ML-only `20261026T064734Z-810f2452`; hybrid
-`20261026T064820Z-1397133d`. Mỗi run có 26 case × 3 PL, không có incomplete
+Run authoritative 26/10: CRS/ML-only `20261026T065044Z-0b703072`; hybrid
+`20261026T065130Z-11223d9f`. Mỗi run có 26 case × 3 PL, không có incomplete
 hoặc invalid control.
 
 | Cấu hình | PL1 block/FPR | PL2 block/FPR | PL3 block/FPR | True bypass |
@@ -169,8 +169,8 @@ hoặc invalid control.
 | Hybrid CRS→ML | 15/15 · 9.1% | 15/15 · 9.1% | 15/15 · 72.7% | 0/15 |
 
 Latency PL1 trên một lượt 26 case (chỉ mô tả run này, chưa phải benchmark tải):
-CRS p50/p95 = 13.953/33.823 ms; ML p50/p95 = 17.181/37.708 ms; hybrid
-p50/p95 = 14.729/56.402 ms.
+CRS p50/p95 = 26.249/37.706 ms; ML p50/p95 = 18.114/46.284 ms; hybrid
+p50/p95 = 13.852/40.577 ms.
 
 ### 4.3. Phân công theo module
 
@@ -281,8 +281,8 @@ phải có `semantic_effect=true` ở direct control trước — không chấp 
 "bypass" chỉ vì `HTTP 200`.
 
 **Cập nhật 26/10:** corpus 26 case đã chạy lại bằng ML enforcement —
-evidence authoritative `20261026T064734Z-810f2452` và hybrid
-`20261026T064820Z-1397133d`, cùng bảng trong `results/tables/`. Kết quả PL1–3:
+evidence authoritative `20261026T065044Z-0b703072` và hybrid
+`20261026T065130Z-11223d9f`, cùng bảng trong `results/tables/`. Kết quả PL1–3:
 bypass thật 0/15 mọi PL; CRS block 13/15 ở PL1–2 và 15/15 ở PL3; nhưng FPR
 benign 9.1% → 9.1% → **72.7%** (PL3 over-block bằng rule protocol 920230/920272/921180
 chứ không phải SQL-family); 2 case DE `pass_without_effect` (CRS decode 1 lượt —

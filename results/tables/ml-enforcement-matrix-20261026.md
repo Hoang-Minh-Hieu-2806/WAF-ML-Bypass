@@ -2,8 +2,8 @@
 
 Authoritative runs:
 
-- CRS-only + ML-only: `20261026T064734Z-810f2452`.
-- Hybrid `CRS -> ML -> web-app`: `20261026T064820Z-1397133d`.
+- CRS-only + ML-only: `20261026T065044Z-0b703072`.
+- Hybrid `CRS -> ML -> web-app`: `20261026T065130Z-11223d9f`.
 - Corpus: 26 cases (15 malicious, 11 benign) × PL1–3; mỗi run 78 lượt.
 - Cả hai run: `incomplete=0`, `control_invalid_total=0`, true bypass 0/15.
 
@@ -26,9 +26,9 @@ do lớp CRS phía trước tạo ra.
 
 | Path | Median (ms) | p95 (ms) |
 |---|---:|---:|
-| CRS-only | 13.953 | 33.823 |
-| ML-only | 17.181 | 37.708 |
-| Hybrid CRS→ML | 14.729 | 56.402 |
+| CRS-only | 26.249 | 37.706 |
+| ML-only | 18.114 | 46.284 |
+| Hybrid CRS→ML | 13.852 | 40.577 |
 
 Các số latency là một lượt 26 case trên máy lab, chỉ dùng mô tả run; chưa phải
 benchmark tải hoặc so sánh có ý nghĩa thống kê.
