@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "technique": "parsing-discrepancy",
+  "target": "flask-mysql",
+  "corpus": "dataset/bypass/parsing-discrepancy/cases.json",
+  "paranoia_levels": [1, 2, 3],
+  "comparison_unit": "mutation + linked baseline + benign/negative controls",
+  "measurement_status": "not-run"
+}

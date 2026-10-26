@@ -1,0 +1,466 @@
+[
+  {
+    "schema_version": "1.0",
+    "id": "pd-001",
+    "technique": "parsing-discrepancy",
+    "title": "Đối chứng benign: JSON credential hợp lệ",
+    "target": "flask-mysql",
+    "label": "benign",
+    "role": "benign-control",
+    "baseline_id": null,
+    "control_ids": [],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [],
+      "form": [],
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "raw_query": null,
+      "raw_body": "{\"username\":\"alice\",\"password\":\"alice123\"}"
+    },
+    "expected_app": {
+      "selected": {
+        "username": "alice",
+        "password": "alice123"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "JSON object là nguồn dữ liệu handler; thành công hợp lệ không mở rộng tập reference ID. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "pd-002",
+    "technique": "parsing-discrepancy",
+    "title": "Baseline JSON: username có biểu thức baseline",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "baseline",
+    "baseline_id": null,
+    "control_ids": [
+      "pd-001",
+      "pd-004"
+    ],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [],
+      "form": [],
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "raw_query": null,
+      "raw_body": "{\"username\":\"' OR 1=1 -- \",\"password\":\"wrong\"}"
+    },
+    "expected_app": {
+      "selected": {
+        "username": "' OR 1=1 -- ",
+        "password": "wrong"
+      },
+      "semantic_effect": true,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Giá trị baseline giống integrated-smoke, vận chuyển bằng JSON thay form. Đây là giả thuyết trực tiếp trên handler /login. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "pd-003",
+    "technique": "parsing-discrepancy",
+    "title": "JSON duplicate: benign đầu, biểu thức baseline cuối",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "mutation",
+    "baseline_id": "pd-002",
+    "control_ids": [
+      "pd-001",
+      "pd-004"
+    ],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [],
+      "form": [],
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "raw_query": null,
+      "raw_body": "{\"username\":\"alice\",\"username\":\"' OR 1=1 -- \",\"password\":\"wrong\"}"
+    },
+    "expected_app": {
+      "selected": {
+        "username": "' OR 1=1 -- ",
+        "password": "wrong"
+      },
+      "semantic_effect": true,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Python JSON loader mặc định giữ key cuối, khác first-value-wins của query/form. Raw body giữ nguyên cả hai key; cách WAF nhìn key trùng phải lấy từ audit. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "pd-004",
+    "technique": "parsing-discrepancy",
+    "title": "Đối chứng âm JSON: biểu thức đầu, benign cuối",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "negative-control",
+    "baseline_id": "pd-002",
+    "control_ids": [
+      "pd-001"
+    ],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [],
+      "form": [],
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "raw_query": null,
+      "raw_body": "{\"username\":\"' OR 1=1 -- \",\"username\":\"alice\",\"password\":\"wrong\"}"
+    },
+    "expected_app": {
+      "selected": {
+        "username": "alice",
+        "password": "wrong"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Đảo duy nhất thứ tự hai username của pd-003. Giá trị cuối alice đi cùng password sai, không dự kiến xác thực hoặc SQLi effect. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "pd-005",
+    "technique": "parsing-discrepancy",
+    "title": "Đối chứng benign: credential lấy từ form",
+    "target": "flask-mysql",
+    "label": "benign",
+    "role": "benign-control",
+    "baseline_id": null,
+    "control_ids": [],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [],
+      "form": [
+        [
+          "username",
+          "alice"
+        ],
+        [
+          "password",
+          "alice123"
+        ]
+      ],
+      "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "username": "alice",
+        "password": "alice123"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "JSON không được chọn; request.form là nguồn username/password. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "pd-006",
+    "technique": "parsing-discrepancy",
+    "title": "Baseline form: username có biểu thức baseline",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "baseline",
+    "baseline_id": null,
+    "control_ids": [
+      "pd-005",
+      "pd-008"
+    ],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [],
+      "form": [
+        [
+          "username",
+          "' OR 1=1 -- "
+        ],
+        [
+          "password",
+          "wrong"
+        ]
+      ],
+      "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "username": "' OR 1=1 -- ",
+        "password": "wrong"
+      },
+      "semantic_effect": true,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Mốc tham chiếu trước khi chuyển biểu thức từ form sang query string. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "pd-007",
+    "technique": "parsing-discrepancy",
+    "title": "Chuyển biểu thức sang query trong khi form vẫn benign",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "mutation",
+    "baseline_id": "pd-006",
+    "control_ids": [
+      "pd-005",
+      "pd-008"
+    ],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [
+        [
+          "username",
+          "' OR 1=1 -- "
+        ],
+        [
+          "password",
+          "wrong"
+        ]
+      ],
+      "form": [
+        [
+          "username",
+          "alice"
+        ],
+        [
+          "password",
+          "wrong"
+        ]
+      ],
+      "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "username": "alice",
+        "password": "wrong"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "/login không đọc request.args. SQLi xuất hiện ở query để quan sát WAF nhưng không vào SQL handler; không được báo là bypass nếu app không có effect. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "pd-008",
+    "technique": "parsing-discrepancy",
+    "title": "Đối chứng âm: query credential đúng không ghi đè form sai",
+    "target": "flask-mysql",
+    "label": "benign",
+    "role": "negative-control",
+    "baseline_id": "pd-006",
+    "control_ids": [
+      "pd-005"
+    ],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [
+        [
+          "username",
+          "alice"
+        ],
+        [
+          "password",
+          "alice123"
+        ]
+      ],
+      "form": [
+        [
+          "username",
+          "alice"
+        ],
+        [
+          "password",
+          "wrong"
+        ]
+      ],
+      "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "username": "alice",
+        "password": "wrong"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Loại trừ giả thuyết app trộn query trước form như SQLite fixture; Flask handler chỉ dùng form khi JSON không được chọn. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "pd-009",
+    "technique": "parsing-discrepancy",
+    "title": "Đổi Content-Type: JSON baseline gửi dưới text/plain",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "mutation",
+    "baseline_id": "pd-002",
+    "control_ids": [
+      "pd-001",
+      "pd-010"
+    ],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [],
+      "form": [],
+      "headers": {
+        "Content-Type": "text/plain"
+      },
+      "raw_query": null,
+      "raw_body": "{\"username\":\"' OR 1=1 -- \",\"password\":\"wrong\"}"
+    },
+    "expected_app": {
+      "selected": {
+        "username": "",
+        "password": ""
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Body vẫn là JSON text nhưng Flask get_json(silent=True) không chọn JSON với media type này, và form rỗng; biểu thức không vào handler. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "pd-010",
+    "technique": "parsing-discrepancy",
+    "title": "Đối chứng âm Content-Type: form text không tự được parse",
+    "target": "flask-mysql",
+    "label": "benign",
+    "role": "negative-control",
+    "baseline_id": "pd-002",
+    "control_ids": [
+      "pd-001"
+    ],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [],
+      "form": [],
+      "headers": {
+        "Content-Type": "text/plain"
+      },
+      "raw_query": null,
+      "raw_body": "username=alice&password=alice123"
+    },
+    "expected_app": {
+      "selected": {
+        "username": "",
+        "password": ""
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Dù body nhìn giống form hợp lệ, text/plain không kích hoạt request.form. Header là một biến độc lập cần giữ nguyên khi gửi. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "pd-011",
+    "technique": "parsing-discrepancy",
+    "title": "JSON string chứa percent encoding không qua URL decoder",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "mutation",
+    "baseline_id": "pd-002",
+    "control_ids": [
+      "pd-001",
+      "pd-012"
+    ],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [],
+      "form": [],
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "raw_query": null,
+      "raw_body": "{\"username\":\"%27%20OR%201%3D1%20--%20\",\"password\":\"wrong\"}"
+    },
+    "expected_app": {
+      "selected": {
+        "username": "%27%20OR%201%3D1%20--%20",
+        "password": "wrong"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Cùng biểu diễn percent encoding có ý nghĩa ở form, nhưng JSON parser giữ nguyên %27/%20. Không gán cùng pipeline decode cho mọi Content-Type. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "pd-012",
+    "technique": "parsing-discrepancy",
+    "title": "Đối chứng âm JSON: %61lice không trở thành alice",
+    "target": "flask-mysql",
+    "label": "benign",
+    "role": "negative-control",
+    "baseline_id": "pd-002",
+    "control_ids": [
+      "pd-001"
+    ],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [],
+      "form": [],
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "raw_query": null,
+      "raw_body": "{\"username\":\"%61lice\",\"password\":\"alice123\"}"
+    },
+    "expected_app": {
+      "selected": {
+        "username": "%61lice",
+        "password": "alice123"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "So với pd-001, percent text được giữ nguyên trong giá trị JSON. Không có bước URL decode trên username JSON trong source. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  }
+]

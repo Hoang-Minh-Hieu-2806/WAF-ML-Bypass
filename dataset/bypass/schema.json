@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "T03 payload research corpus v1.0",
+  "description": "Source-based expectations for the local Flask/MySQL fixture, not measured WAF outcomes.",
+  "type": "array",
+  "minItems": 1,
+  "items": {"$ref": "#/$defs/case"},
+  "$defs": {
+    "pairs": {
+      "type": "array",
+      "items": {
+        "type": "array", "minItems": 2, "maxItems": 2,
+        "items": {"type": "string"}
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "path", "params", "form", "headers", "raw_query", "raw_body"],
+      "properties": {
+        "method": {"enum": ["GET", "POST"]},
+        "path": {"enum": ["/search", "/product", "/login"]},
+        "params": {"$ref": "#/$defs/pairs"},
+        "form": {"$ref": "#/$defs/pairs"},
+        "headers": {"type": "object", "additionalProperties": {"type": "string"}},
+        "raw_query": {"type": ["string", "null"]},
+        "raw_body": {"type": ["string", "null"]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"raw_query": {"type": "string"}}},
+          "then": {"properties": {"params": {"maxItems": 0}}}
+        },
+        {
+          "if": {"properties": {"raw_body": {"type": "string"}}},
+          "then": {"properties": {"form": {"maxItems": 0}}}
+        }
+      ]
+    },
+    "expectation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["selected", "semantic_effect", "sql_error", "http_status"],
+      "properties": {
+        "selected": {"type": "object", "additionalProperties": {"type": "string"}},
+        "semantic_effect": {"type": ["boolean", "null"]},
+        "sql_error": {"type": ["boolean", "null"]},
+        "http_status": {"const": 200}
+      }
+    },
+    "case": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "id", "technique", "title", "target", "label", "role", "baseline_id", "control_ids", "request", "expected_app", "note"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "id": {"type": "string", "pattern": "^(hpp|de|cc|pd)-[0-9]{3}$"},
+        "technique": {"enum": ["hpp", "double-encoding", "case-comment", "parsing-discrepancy"]},
+        "title": {"type": "string", "minLength": 1},
+        "target": {"const": "flask-mysql"},
+        "label": {"enum": ["benign", "malicious"]},
+        "role": {"enum": ["baseline", "mutation", "benign-control", "negative-control"]},
+        "baseline_id": {"type": ["string", "null"]},
+        "control_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "request": {"$ref": "#/$defs/request"},
+        "expected_app": {"$ref": "#/$defs/expectation"},
+        "note": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

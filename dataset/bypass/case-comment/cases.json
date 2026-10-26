@@ -1,0 +1,290 @@
+[
+  {
+    "schema_version": "1.0",
+    "id": "cc-001",
+    "technique": "case-comment",
+    "title": "Baseline search: điều kiện OR đúng với quote cân bằng",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "baseline",
+    "baseline_id": null,
+    "control_ids": [
+      "cc-002",
+      "cc-003"
+    ],
+    "request": {
+      "method": "GET",
+      "path": "/search",
+      "params": [
+        [
+          "q",
+          "zz' OR '1'='1' OR username LIKE 'zz"
+        ]
+      ],
+      "form": [],
+      "headers": {},
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "q": "zz' OR '1'='1' OR username LIKE 'zz"
+      },
+      "semantic_effect": true,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "SQL thành LIKE '%zz' OR '1'='1' OR username LIKE 'zz%': điều kiện giữa đúng; truy vấn bind tìm chuỗi literal không khớp seed. Dự đoán source, chưa đo WAF/MySQL."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "cc-002",
+    "technique": "case-comment",
+    "title": "Đối chứng benign: từ khóa và dấu comment trong chuỗi tìm kiếm",
+    "target": "flask-mysql",
+    "label": "benign",
+    "role": "benign-control",
+    "baseline_id": null,
+    "control_ids": [],
+    "request": {
+      "method": "GET",
+      "path": "/search",
+      "params": [
+        [
+          "q",
+          "UNION SELECT OR /* note */"
+        ]
+      ],
+      "form": [],
+      "headers": {},
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "q": "UNION SELECT OR /* note */"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Không có dấu quote để thoát chuỗi LIKE. Các từ khóa và /* note */ chỉ là nội dung literal; không được coi là SQLi chỉ vì có token đáng ngờ."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "cc-003",
+    "technique": "case-comment",
+    "title": "Đối chứng âm search: điều kiện OR sai",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "negative-control",
+    "baseline_id": "cc-001",
+    "control_ids": [
+      "cc-002"
+    ],
+    "request": {
+      "method": "GET",
+      "path": "/search",
+      "params": [
+        [
+          "q",
+          "zz' OR '1'='2' OR username LIKE 'zz"
+        ]
+      ],
+      "form": [],
+      "headers": {},
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "q": "zz' OR '1'='2' OR username LIKE 'zz"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Thay điều kiện giữa bằng '1'='2'. Hai mẫu LIKE chỉ tìm tiền tố/hậu tố zz, không có trong seed; không mở rộng tập ID so với tham chiếu."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "cc-004",
+    "technique": "case-comment",
+    "title": "Biến thể chữ hoa thường của từ khóa SQL",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "mutation",
+    "baseline_id": "cc-001",
+    "control_ids": [
+      "cc-002",
+      "cc-003"
+    ],
+    "request": {
+      "method": "GET",
+      "path": "/search",
+      "params": [
+        [
+          "q",
+          "zz' oR '1'='1' oR username LiKe 'zz"
+        ]
+      ],
+      "form": [],
+      "headers": {},
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "q": "zz' oR '1'='1' oR username LiKe 'zz"
+      },
+      "semantic_effect": true,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Chỉ đổi OR/LIKE thành oR/LiKe; từ khóa SQL không phân biệt hoa thường. Giữ nguyên nội dung literal và điều kiện của cc-001."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "cc-005",
+    "technique": "case-comment",
+    "title": "Biến thể block comment thay khoảng trắng giữa token",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "mutation",
+    "baseline_id": "cc-001",
+    "control_ids": [
+      "cc-002",
+      "cc-003"
+    ],
+    "request": {
+      "method": "GET",
+      "path": "/search",
+      "params": [
+        [
+          "q",
+          "zz'/**/OR/**/'1'='1'/**/OR/**/username/**/LIKE/**/'zz"
+        ]
+      ],
+      "form": [],
+      "headers": {},
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "q": "zz'/**/OR/**/'1'='1'/**/OR/**/username/**/LIKE/**/'zz"
+      },
+      "semantic_effect": true,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Đặt comment /* */ giữa các token hoàn chỉnh, không chẻ từ khóa. SQL dự kiến giữ điều kiện đúng của cc-001; chưa biết WAF phát hiện hay chặn."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "cc-006",
+    "technique": "case-comment",
+    "title": "Kết hợp chữ hoa thường và block comment",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "mutation",
+    "baseline_id": "cc-001",
+    "control_ids": [
+      "cc-002",
+      "cc-003"
+    ],
+    "request": {
+      "method": "GET",
+      "path": "/search",
+      "params": [
+        [
+          "q",
+          "zz'/**/oR/**/'1'='1'/**/oR/**/username/**/LiKe/**/'zz"
+        ]
+      ],
+      "form": [],
+      "headers": {},
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "q": "zz'/**/oR/**/'1'='1'/**/oR/**/username/**/LiKe/**/'zz"
+      },
+      "semantic_effect": true,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Kết hợp hai thay đổi của cc-004 và cc-005. Chỉ thay biểu diễn từ khóa/khoảng trắng; không dùng version comment, stacked query hoặc thao tác sửa dữ liệu."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "cc-007",
+    "technique": "case-comment",
+    "title": "Baseline product: điều kiện số OR đúng",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "baseline",
+    "baseline_id": null,
+    "control_ids": [
+      "cc-008"
+    ],
+    "request": {
+      "method": "GET",
+      "path": "/product",
+      "params": [
+        [
+          "id",
+          "1 OR 1=1"
+        ]
+      ],
+      "form": [],
+      "headers": {},
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "id": "1 OR 1=1"
+      },
+      "semantic_effect": true,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Mốc tham chiếu cho vị trí số không có quote ở /product; dự kiến trả thêm ID so với bind parameter. Không được gộp với baseline search như cùng một ngữ cảnh SQL."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "cc-008",
+    "technique": "case-comment",
+    "title": "Đối chứng âm product: điều kiện số OR sai",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "negative-control",
+    "baseline_id": "cc-007",
+    "control_ids": [],
+    "request": {
+      "method": "GET",
+      "path": "/product",
+      "params": [
+        [
+          "id",
+          "1 OR 1=2"
+        ]
+      ],
+      "form": [],
+      "headers": {},
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "id": "1 OR 1=2"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Điều kiện OR sai giữ lại id=1; với MySQL fixture và phép ép kiểu của truy vấn tham chiếu dự kiến không có ID bổ sung. Cần kiểm lại khi đo MySQL thật."
+  }
+]

@@ -1,0 +1,335 @@
+[
+  {
+    "schema_version": "1.0",
+    "id": "hpp-001",
+    "technique": "hpp",
+    "title": "Baseline: mở rộng điều kiện product",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "baseline",
+    "baseline_id": null,
+    "control_ids": [
+      "hpp-002",
+      "hpp-003"
+    ],
+    "request": {
+      "method": "GET",
+      "path": "/product",
+      "params": [
+        [
+          "id",
+          "1 OR 1=1"
+        ]
+      ],
+      "form": [],
+      "headers": {},
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "id": "1 OR 1=1"
+      },
+      "semantic_effect": true,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Dự đoán từ source và fixture: SQL ghép chuỗi trả thêm user ID so với truy vấn bind tham chiếu. Chưa chạy MySQL/WAF; không khẳng định bypass."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "hpp-002",
+    "technique": "hpp",
+    "title": "Đối chứng benign: hai ID hợp lệ, lấy giá trị đầu",
+    "target": "flask-mysql",
+    "label": "benign",
+    "role": "benign-control",
+    "baseline_id": null,
+    "control_ids": [],
+    "request": {
+      "method": "GET",
+      "path": "/product",
+      "params": [
+        [
+          "id",
+          "1"
+        ],
+        [
+          "id",
+          "2"
+        ]
+      ],
+      "form": [],
+      "headers": {},
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "id": "1"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "request.args.get lấy id đầu tiên. Cả hai giá trị đều là dữ liệu ID hợp lệ; nhiều tham số không tự tạo tác động SQLi."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "hpp-003",
+    "technique": "hpp",
+    "title": "Đối chứng âm: tách biểu thức qua hai giá trị id",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "negative-control",
+    "baseline_id": "hpp-001",
+    "control_ids": [
+      "hpp-002"
+    ],
+    "request": {
+      "method": "GET",
+      "path": "/product",
+      "params": [
+        [
+          "id",
+          "1"
+        ],
+        [
+          "id",
+          "OR 1=1"
+        ]
+      ],
+      "form": [],
+      "headers": {},
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "id": "1"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Fragment OR 1=1 nằm ở giá trị thứ hai. Handler lấy giá trị đầu, không nối các mảnh thành 1 OR 1=1; kỳ vọng không có tác động."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "hpp-004",
+    "technique": "hpp",
+    "title": "HPP: biểu thức SQL đứng trước ID benign",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "mutation",
+    "baseline_id": "hpp-001",
+    "control_ids": [
+      "hpp-002",
+      "hpp-003"
+    ],
+    "request": {
+      "method": "GET",
+      "path": "/product",
+      "params": [
+        [
+          "id",
+          "1 OR 1=1"
+        ],
+        [
+          "id",
+          "1"
+        ]
+      ],
+      "form": [],
+      "headers": {},
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "id": "1 OR 1=1"
+      },
+      "semantic_effect": true,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Giữ nguyên thứ tự cặp khi encode. Flask chọn biểu thức đầu tiên; tác động dự kiến giống hpp-001. Chưa đo quyết định của WAF."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "hpp-005",
+    "technique": "hpp",
+    "title": "HPP đảo thứ tự: ID benign đứng trước biểu thức SQL",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "mutation",
+    "baseline_id": "hpp-001",
+    "control_ids": [
+      "hpp-002",
+      "hpp-003"
+    ],
+    "request": {
+      "method": "GET",
+      "path": "/product",
+      "params": [
+        [
+          "id",
+          "1"
+        ],
+        [
+          "id",
+          "1 OR 1=1"
+        ]
+      ],
+      "form": [],
+      "headers": {},
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "id": "1"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Cùng hai giá trị với hpp-004 nhưng đảo thứ tự. Ý định vẫn malicious, song first-value-wins làm biểu thức ở giá trị sau không vào SQL."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "hpp-006",
+    "technique": "hpp",
+    "title": "Baseline: biểu thức OR trong password của form login",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "baseline",
+    "baseline_id": null,
+    "control_ids": [
+      "hpp-007",
+      "hpp-008"
+    ],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [],
+      "form": [
+        [
+          "username",
+          "alice"
+        ],
+        [
+          "password",
+          "' OR '1'='1"
+        ]
+      ],
+      "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "username": "alice",
+        "password": "' OR '1'='1"
+      },
+      "semantic_effect": true,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Sau ghép chuỗi, OR có điều kiện đúng ở cuối WHERE; truy vấn bind với cùng password không khớp fixture. Chỉ dùng tài khoản giả trong seed."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "hpp-007",
+    "technique": "hpp",
+    "title": "Đối chứng benign: password đúng trước password sai",
+    "target": "flask-mysql",
+    "label": "benign",
+    "role": "benign-control",
+    "baseline_id": null,
+    "control_ids": [],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [],
+      "form": [
+        [
+          "username",
+          "alice"
+        ],
+        [
+          "password",
+          "alice123"
+        ],
+        [
+          "password",
+          "wrong"
+        ]
+      ],
+      "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "username": "alice",
+        "password": "alice123"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Form có password trùng tên. Handler dùng alice123 đầu tiên, đăng nhập hợp lệ theo fixture; thành công xác thực hợp lệ vẫn có semantic_effect=false."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "hpp-008",
+    "technique": "hpp",
+    "title": "Đối chứng âm form: password sai trước biểu thức SQL",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "negative-control",
+    "baseline_id": "hpp-006",
+    "control_ids": [
+      "hpp-007"
+    ],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [],
+      "form": [
+        [
+          "username",
+          "alice"
+        ],
+        [
+          "password",
+          "wrong"
+        ],
+        [
+          "password",
+          "' OR '1'='1"
+        ]
+      ],
+      "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      "raw_query": null,
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "username": "alice",
+        "password": "wrong"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "request.form.get chọn wrong; password chứa biểu thức ở vị trí thứ hai không được dùng. Kỳ vọng không xác thực và không có tác động SQLi."
+  }
+]

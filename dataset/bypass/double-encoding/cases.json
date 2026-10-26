@@ -1,0 +1,262 @@
+[
+  {
+    "schema_version": "1.0",
+    "id": "de-001",
+    "technique": "double-encoding",
+    "title": "Đối chứng benign: ký tự a encode một lần trong query",
+    "target": "flask-mysql",
+    "label": "benign",
+    "role": "benign-control",
+    "baseline_id": null,
+    "control_ids": [],
+    "request": {
+      "method": "GET",
+      "path": "/search",
+      "params": [],
+      "form": [],
+      "headers": {},
+      "raw_query": "q=%61lice",
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "q": "alice"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Query parser decode %61 thành a; handler và bind reference đều tìm alice. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "de-002",
+    "technique": "double-encoding",
+    "title": "Baseline search: SQLi URL-encode một lần",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "baseline",
+    "baseline_id": null,
+    "control_ids": [
+      "de-001",
+      "de-004"
+    ],
+    "request": {
+      "method": "GET",
+      "path": "/search",
+      "params": [],
+      "form": [],
+      "headers": {},
+      "raw_query": "q=%27%20OR%201%3D1%20--%20",
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "q": "' OR 1=1 -- "
+      },
+      "semantic_effect": true,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Dùng lại biểu thức baseline SQLI-SEARCH của integrated-smoke. Decode một lần trả dấu quote thực; OR mở rộng tập ID. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "de-003",
+    "technique": "double-encoding",
+    "title": "Biến thể search: cùng giá trị encode hai lần",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "mutation",
+    "baseline_id": "de-002",
+    "control_ids": [
+      "de-001",
+      "de-004"
+    ],
+    "request": {
+      "method": "GET",
+      "path": "/search",
+      "params": [],
+      "form": [],
+      "headers": {},
+      "raw_query": "q=%2527%2520OR%25201%253D1%2520--%2520",
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "q": "%27%20OR%201%3D1%20--%20"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Sau một lần parse, %27/%20/%3D vẫn là ký tự trong chuỗi LIKE. Backend không gọi unquote lần hai; không dự kiến SQLi có tác động. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "de-004",
+    "technique": "double-encoding",
+    "title": "Đối chứng âm: chữ a encode hai lần không tự phục hồi",
+    "target": "flask-mysql",
+    "label": "benign",
+    "role": "negative-control",
+    "baseline_id": "de-002",
+    "control_ids": [
+      "de-001"
+    ],
+    "request": {
+      "method": "GET",
+      "path": "/search",
+      "params": [],
+      "form": [],
+      "headers": {},
+      "raw_query": "q=%2561lice",
+      "raw_body": null
+    },
+    "expected_app": {
+      "selected": {
+        "q": "%61lice"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "So với de-001, %2561 trở thành literal %61, không thành a ở app. Dùng raw_query để không encode thêm %25. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "de-005",
+    "technique": "double-encoding",
+    "title": "Đối chứng benign: form credential hợp lệ",
+    "target": "flask-mysql",
+    "label": "benign",
+    "role": "benign-control",
+    "baseline_id": null,
+    "control_ids": [],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [],
+      "form": [],
+      "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      "raw_query": null,
+      "raw_body": "username=alice&password=alice123"
+    },
+    "expected_app": {
+      "selected": {
+        "username": "alice",
+        "password": "alice123"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Đăng nhập hợp lệ không phải semantic effect vì reference query trả cùng user ID. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "de-006",
+    "technique": "double-encoding",
+    "title": "Baseline login: username encode một lần trong form",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "baseline",
+    "baseline_id": null,
+    "control_ids": [
+      "de-005",
+      "de-008"
+    ],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [],
+      "form": [],
+      "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      "raw_query": null,
+      "raw_body": "username=%27%20OR%201%3D1%20--%20&password=wrong"
+    },
+    "expected_app": {
+      "selected": {
+        "username": "' OR 1=1 -- ",
+        "password": "wrong"
+      },
+      "semantic_effect": true,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Form decoder phục hồi biểu thức username baseline; handler ghép SQL và bind reference dự kiến trả tập ID khác nhau. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "de-007",
+    "technique": "double-encoding",
+    "title": "Biến thể login: username encode hai lần trong form",
+    "target": "flask-mysql",
+    "label": "malicious",
+    "role": "mutation",
+    "baseline_id": "de-006",
+    "control_ids": [
+      "de-005",
+      "de-008"
+    ],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [],
+      "form": [],
+      "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      "raw_query": null,
+      "raw_body": "username=%2527%2520OR%25201%253D1%2520--%2520&password=wrong"
+    },
+    "expected_app": {
+      "selected": {
+        "username": "%27%20OR%201%3D1%20--%20",
+        "password": "wrong"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Một lớp decode form để lại chuỗi percent-encoded trong username. Không có dấu quote thực để đổi cấu trúc SQL của handler. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  },
+  {
+    "schema_version": "1.0",
+    "id": "de-008",
+    "technique": "double-encoding",
+    "title": "Đối chứng âm form: percent-encoded username còn nguyên sau một lớp",
+    "target": "flask-mysql",
+    "label": "benign",
+    "role": "negative-control",
+    "baseline_id": "de-006",
+    "control_ids": [
+      "de-005"
+    ],
+    "request": {
+      "method": "POST",
+      "path": "/login",
+      "params": [],
+      "form": [],
+      "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      "raw_query": null,
+      "raw_body": "username=%2561lice&password=alice123"
+    },
+    "expected_app": {
+      "selected": {
+        "username": "%61lice",
+        "password": "alice123"
+      },
+      "semantic_effect": false,
+      "sql_error": false,
+      "http_status": 200
+    },
+    "note": "Input không còn là username alice của seed; không suy đăng nhập thành công từ HTTP 200. Kỳ vọng từ source và seed; chưa đo MySQL/CRS."
+  }
+]
