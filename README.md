@@ -569,8 +569,10 @@ SQLite được giữ riêng với kết quả của backend Flask/MySQL.
 
 **Lab tích hợp:** 4 service từ `feature/docker`, CRS blocking + JSON audit,
 application evidence có correlation ID. ML `/score` chạy model học máy
-lr-tfidf-1.0 (F1 0.9076 trên test n=312). Bypass SQLi 4 nhóm có runner
-`scripts/run_experiment.py` + evidence `results/raw/experiments/`.
+lr-tfidf-1.0 (F1 0.9076 — OOF validation GroupKFold5 trên n=312, không phải
+held-out test set; scoring API, chưa nằm trong đường chặn). Bypass SQLi
+4 nhóm có runner `scripts/run_experiment.py` + evidence
+`results/raw/experiments/`.
 Xem [Quick Start PowerShell](docs/quickstart-lab.md) để dựng lab và chạy
 `python waf-crs/run_integrated_smoke.py` kiểm chứng PL1.
 [Kết quả tích hợp PL1–PL3](report/crs-docker-integration.md) được lưu riêng với
@@ -722,9 +724,9 @@ Tuần 03–04: ModSecurity + CRS & Baseline
         ▼
 Tuần 05–06: ML-WAF Pipeline & Đào tạo Model
   - dataset/raw (SQLi + benign), schema CSV/JSON, TF-IDF/BOW
-  - Logistic Regression / SVM, split 70/30 + Cross-Validation, chống leakage
+  - Logistic Regression, GroupKFold theo family (chống leakage), OOF validation
   - API scoring Flask/FastAPI {label, score} + version model
-  - MILESTONE: curl 1 request vào ML-WAF nhận được nhãn, chạy song song CRS — 🔶 stub `/score` đã sẵn sàng; model thật tuần 05–06
+  - MILESTONE: curl 1 request vào ML-WAF nhận được nhãn, chạy song song CRS — ✅ 25/10/2026: model thật `lr-tfidf-1.0` đã vào `/score` (health trả `ok`, bỏ stub; đánh giá OOF GroupKFold5 n=312: F1 0.9076, FPR 1.68%)
         │
         ▼
 Tuần 07–08: Bypass HPP & Double-Encoding
@@ -1010,7 +1012,7 @@ Repository này thể hiện các kỹ năng phục vụ CV:
 
 ## 🚧 Project Status
 
-**Status: Docker lab + CRS baseline/integration đã kiểm chứng; ML model và bypass experiments đang triển khai**
+**Status: Docker lab + CRS baseline/integration + ML model (lr-tfidf-1.0) + bypass experiments (26 case × PL1–3) đã hoàn thành và có evidence; còn lại: phân tích sâu (precision/recall per-technique), ML enforcement path và hardening**
 
 ### Completed
 
@@ -1028,9 +1030,9 @@ Repository này thể hiện các kỹ năng phục vụ CV:
 ### In Progress
 
 - [ ] Finalize system architecture (còn chốt ML enforcement path trước tuần 07 — xem `docs/architecture.md`)
-- [ ] Prepare ML dataset
+- [x] Prepare ML dataset (25/10/2026: 312 mẫu — 133 mal / 179 ben / 16 family; OOF GroupKFold5 → `results/tables/ml-v0-summary.md`)
 - [x] Implement ML-WAF (tuần 05–06; model lr-tfidf-1.0, giữ nguyên contract `/score`)
-- [ ] Bypass experiments HPP / double-encoding / case-comment / parsing-discrepancy (tuần 07–10)
+- [x] Bypass experiments HPP / double-encoding / case-comment / parsing-discrepancy (25/10/2026: corpus 26 case + matrix PL1–3 → `results/tables/bypass-matrix-20261025.md`; ⏳ còn phân tích per-technique và re-run trên ML enforcement path sau khi chốt proxy)
 - [x] Build automated testing pipeline (`scripts/run_experiment.py` — corpus 26 case, matrix PL1–3)
 - [ ] Analyze results
 - [ ] CRS hardening

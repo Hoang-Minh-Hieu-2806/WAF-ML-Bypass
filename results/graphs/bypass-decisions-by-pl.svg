@@ -2,7 +2,7 @@
   <rect width="760" height="420" fill="#fffcf7"/>
   <text x="380" y="30" text-anchor="middle" font-size="17" font-weight="bold" fill="#333">Bypass matrix: CRS decisions theo Paranoia Level (26 case SQLi)</text>
   <text x="380" y="52" text-anchor="middle" font-size="11" fill="#777">Run 20261025T182650Z-4e5c2027 — 15 malicious + 11 benign; n=78 lượt (26 case × PL1–3)</text>
-  <!-- trục: y=86 (100%)今 baseline=350, thang 264px -->
+  <!-- trục: y=350 (mốc 0%), y=86 (mốc 100%), thang 264px cho 100% -->
   <line x1="70" y1="86" x2="70" y2="350" stroke="#999"/>
   <line x1="70" y1="350" x2="720" y2="350" stroke="#999"/>
   <line x1="70" y1="218" x2="720" y2="218" stroke="#e0e0e0" stroke-dasharray="4 4"/>
@@ -33,5 +33,5 @@
   <text x="140" y="404" font-size="11" fill="#333">Malicious bị block (CRS)</text>
   <rect x="300" y="392" width="14" height="14" fill="#f0a30a"/>
   <text x="320" y="404" font-size="11" fill="#333">Benign bị block (FPR)</text>
-  <text x="720" y="404" text-anchor="end" font-size="10" fill="#555">true_bypass 0/15 mọi PL; recalled SQL-family 10/10 mọi PL</text>
+  <text x="720" y="404" text-anchor="end" font-size="10" fill="#555">true_bypass 0/15; SQL-family detection 11/15 (73.3%) ổn định PL1–PL3</text>
 </svg>

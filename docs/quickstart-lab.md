@@ -21,7 +21,7 @@ docker compose up -d --build --wait --wait-timeout 240
 docker compose ps
 ```
 
-Port mặc định: backend `127.0.0.1:8080`, CRS `127.0.0.1:8081`, ML stub
+Port mặc định: backend `127.0.0.1:8080`, CRS `127.0.0.1:8081`, ML scoring API
 `127.0.0.1:8082`. DB không publish port. Các port có thể đổi trong `.env`.
 
 ## Kiểm chứng
@@ -35,8 +35,10 @@ echo '{"text":"1 OR 1=1"}' | curl.exe -s -X POST http://localhost:8082/score -H 
 python waf-crs/run_integrated_smoke.py
 ```
 
-Kỳ vọng: health/benign 200, SQLi 403; ML stub trả `malicious`/0.9 cho payload SQLi
-(model lr-tfidf-1.0 thật — F1 0.9076 trên test n=312). Runner `scripts/run_experiment.py` kiểm chứng thêm direct controls,
+Kỳ vọng: health/benign 200, SQLi 403; `/score` trả nhãn từ model ML thật
+`lr-tfidf-1.0` (F1 0.9076 — OOF GroupKFold5 trên n=312, không phải held-out
+test set; giới hạn scoring API, chưa chặn inline). Runner
+`scripts/run_experiment.py` kiểm chứng thêm direct controls,
 audit SQLi `942xxx`, inbound block `949110` và application evidence. Mỗi run
 có snapshot/metadata/CSV/summary riêng tại `results/raw/crs-integrated/`.
 Đây là smoke corpus 6 case; không thay thế bảng baseline SQLite hoặc benchmark.
@@ -66,7 +68,10 @@ Các test app dùng database mock; smoke runner mới kiểm chứng MySQL thậ
 - App JSONL: `logs/application/integrated/app.jsonl`; stdout SQL vẫn có.
 - `.env`, logs và raw results không commit. Không lưu Compose config đầy đủ
   hoặc container environment vào evidence vì có thể chứa mật khẩu `.env`.
-- ML `/score` chạy model lr-tfidf-1.0 (train thật trong container); đánh giá n=312 GroupKFold5: F1 0.9076, FPR 1.68% — results/tables/ml-v0-summary.md.
+- ML `/score` chạy model lr-tfidf-1.0 (train thật trong container); đánh giá
+  **OOF validation** n=312 GroupKFold5: F1 0.9076, FPR 1.68% —
+  `results/tables/ml-v0-summary.md`. ML chỉ là scoring API (`:8082`), **không
+  nằm trong đường chặn request** — compose forward trực tiếp `waf-crs → web-app:5000`.
 
 ## Dừng và rollback
 

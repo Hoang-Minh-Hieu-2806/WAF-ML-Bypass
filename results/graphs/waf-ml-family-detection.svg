@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="880" height="480" viewBox="0 0 880 480" font-family="Segoe UI, Arial, sans-serif">
   <rect width="880" height="480" fill="#ffffff"/>
   <text x="440" y="26" text-anchor="middle" font-size="17" font-weight="bold" fill="#111827">ML-WAF v0 — % bắt được SQLi theo từng family (GroupKFold CV, leak-safe theo family)</text>
-  <text x="440" y="46" text-anchor="middle" font-size="12" fill="#6b7280">TF-IDF char 2-5 gram + LogisticRegression · n=312 · threshold 0.5 · model lr-tfidf-1.0</text>
+  <text x="440" y="46" text-anchor="middle" font-size="12" fill="#6b7280">TF-IDF char 2-5 gram + LogisticRegression · n=312 · threshold 0.5 · model lr-tfidf-1.0 · đánh giá OOF validation</text>
 
   <!-- horizontal bars: x start 230, scale 6.2px/% -->
   <!-- union 100 -> 620 -->
@@ -41,5 +41,5 @@
     <text x="222" y="464" text-anchor="end" font-size="13" fill="#374151">stacked (1; DROP...)</text>
   </g>
 
-  <text x="60" y="472" font-size="11" fill="#6b7280">5-fold CV pool (GroupKFold theo family): train không chứa cùng family với test — mutation "anh em" không được pha trộn giữa 2 tập.</text>
+  <text x="60" y="472" font-size="11" fill="#6b7280">OOF validation (GroupKFold 5-fold theo family): học từ khối train không chứa cùng family — mutation "anh em" không leak; KHÔNG phải held-out test set độc lập.</text>
 </svg>

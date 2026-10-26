@@ -55,8 +55,7 @@ Content-Type: application/json
 GET /health -> {"status":"ok","model_version":"..."}
 ```
 
-Stub hiện tại dùng regex (`union/select/or 1=1/--/#/script`) để trả nhãn.
-Tuần 05-06 thay bằng `TF-IDF + LogisticRegression/SVM`, giữ nguyên JSON keys.
+Đã triển khai 25/10/2026: model thật `TF-IDF + LogisticRegression` (đã chốt `lr-tfidf-1.0`, bỏ `stub-0.1`), giữ nguyên JSON keys; regex chỉ còn fallback nếu image thiếu model. Phạm vi hiện tại: **scoring API song song** — chưa nằm trong đường chặn request (proxy enforcement là kế hoạch tuần 07, xem `docs/architecture.md`).
 
 ## 4. Ranh giới thư mục
 

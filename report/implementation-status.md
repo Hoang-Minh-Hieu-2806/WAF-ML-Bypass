@@ -19,16 +19,16 @@
 | ML-WAF serving (FastAPI /score giữ contract `{label,score,model_version}`) | ✅ `server.py` train-before-import rồi set env `ML_MODEL_VERSION`; `app.py` dùng model.joblib nếu có, fallback regex stub nếu thiếu model; live trả score thật (vd UNION 0.9335) | curl verify health/score từng endpoint (26/10) | chưa có unit test riêng cho dùng-fallback (FastAPI/pydantic text="" đã tránh crash); ML chưa `block`, chỉ score | `POST /score` live |
 | ML evaluation mode | ✅ mỗi case → score + label; định nghĩa "ML ≥0.5 = TP" | chưa chạy trên corpus bypass lớn (chờ runner) | cần runner tích hợp call `/score` cho từng test case (đang làm giai đoạn 4–5) | " |
 | docs.interfaces.md contract cặp (params/form list-of-pairs, Label, expected_app) | ✅ schema, ownership; đã verify schema được dùng bởi corpus CRS | đọc lại toàn file (26/10) | runner chưa đọc schema này (runner mới sẽ tuân thủ) | `docs/interfaces.md §1` |
-| run_experiment.py (file mới) | ❌ chưa tồn tại | — | **cần làm (giai đoạn 4): nạp corpus 4 kỹ thuật, đo CRS + ML, evidence đầy đủ** | `scripts/` trống |
-| corpus bypass 4 nhóm (`hpp`, `double-encoding`, `case-comment`, `parsing-discrepancy`) | ❌ chỉ `.gitkeep` | — | **cần làm (giai đoạn 3): benign control + malicious từng nhóm** | `dataset/bypass/*/` |
+| run_experiment.py (file mới) | ❌ tại thời điểm audit • **✅ cập nhật 25/10/2026: `scripts/run_experiment.py` tồn tại** — nạp corpus 26 case, đo CRS + ML + direct control oracle, outcome classifier, evidence `results/raw/experiments/20261025T182650Z-4e5c2027/` | matrix PL1–3 chạy thành công 25/10 | ⏳ còn: re-run trên ML enforcement path sau khi chốt proxy; precision/recall per-technique | `results/tables/bypass-matrix-20261025.md` |
+| corpus bypass 4 nhóm (`hpp`, `double-encoding`, `case-comment`, `parsing-discrepancy`) | ❌ chỉ `.gitkeep` tại thời điểm audit • **✅ cập nhật 25/10/2026: 26 case (11 benign + 15 malicious)** theo schema `docs/interfaces.md` | nhãn benign/malicious phản ánh đúng trong matrix PL1–3 | ⏳ mở rộng corpus công khai (kaggle) sau giữa kỳ | `dataset/bypass/*/cases.json` |
 | results (bảng/chart) | ✅ SVG + bảng markdown có **(số liệu thực)** | XML valid | cần chart từ runner lớn | `results/tables/*`, `results/graphs/*` |
-| README/quickstart | ✅ đã có, hướng dẫn chính xác khu $(LP) và hiện tượng cp1252 | đọc lại | có vài dòng stub-0.1 nhắc cố chấp v0.1 — cập nhật thông điệp sau khi model thật vào | README top |
+| README/quickstart | ✅ đã có, hướng dẫn chính xác khu $(LP) và hiện tượng cp1252 | đọc lại | [RESOLVED 2026-10-26] các câu "stub-0.1" và "F1 trên test n=312" đã được thống nhất lại theo model thật `lr-tfidf-1.0` + OOF GroupKFold5 (quickstart, `docs/interfaces.md §3`, README status) | README top |
 
 ## Inconsistency + hành động
 
 1. **Live stack đang ở PL3** (`env BLOCKING_PARANOIA=3`) — trước demo phải `$env:CRS_PL='1'; docker compose up -d --wait`.
 2. [RESOLVED 2026-10-25] Stack đã được trả về PL1 (`$env:CRS_PL='1'; docker compose up -d --wait`) và verify `tx.blocking_paranoia_level=1` trong crs-setup.conf (run `20261025T181240Z-27923299` + bypass matrix `20261025T182650Z-4e5c2027` đều chạy từ trạng thái này).
-3. `docs/architecture.md` dòng 11 "chưa có model học máy" → sai so với thời điểm 26/10. Sửa chỗ này ở Phase 6.
+3. [RESOLVED 2026-10-26] `docs/architecture.md` đã cập nhật: model học máy thật `lr-tfidf-1.0` + OOF GroupKFold5 — không còn câu "chưa có model học máy".
 4. Untracked/modified chưa commit: `M waf-ml/{app.py, Dockerfile}`, `?? waf-ml/{build_dataset,train,server}.py`, `?? report/midterm-giao-an.md` — giữ nguyên, không đụng, sẽ gom vào commit có kiểm soát (Phase 7).
 5. `waf-ml/artifacts/` in-container (36KB model + metrics.json) — `.gitignore` loại trừ `*.joblib` đúng chủ đích; runner nên đọc `metrics.json` media container để log model version.
 6. Smoke runner dùng dữ liệu deterministic (metadata `seed=None` là chuẩn; không có RNG vào corpus).

@@ -1,10 +1,10 @@
 # Bypass Matrix — CRS Paranoia Level × 4 nhóm SQLi Evasion (26 case, n=78)
 
-**Run:** `20261025T182650Z-4e5c2027` · **Script:** `scripts/run_experiment.py` · **Stack:** CRS 4.30.0 / ModSec 3.0.17 / nginx (docker `waf-crs` port 8081) · **Oracle:** Spring Lab app (port 8080, logs `logs/application/integrated/app.jsonl`, `X-Lab-Case-ID`) / **ML:** `lr-tfidf-1.0` (F1 0.9076 — GroupKFold5 group=family)
-- Malicious: **15** đã phân loại đúng, không có control invalid (1 case ở chi tiết DE-Fix, cc-mal-004 một lần nữa được verify manual)
+**Run:** `20261025T182650Z-4e5c2027` · **Script:** `scripts/run_experiment.py` · **Stack:** CRS 4.30.0 / ModSec 3.0.17 / nginx (docker `waf-crs` port 8081) · **Oracle:** lab app Flask (port 8080, logs `logs/application/integrated/app.jsonl`, `X-Lab-Case-ID`) / **ML:** `lr-tfidf-1.0` (F1 0.9076 — OOF GroupKFold5 group=family)
+- Malicious: **15** case, direct control đều hợp lệ; không có `control_invalid` hay `incomplete` nào trong run.
 - Benign: **11** passed comparison (direct app effect == app effect qua WAF)
 
-## Outcome matrix —um 78 lượt (26 case × 3 PL)
+## Outcome matrix — 78 lượt (26 case × 3 PL)
 
 | Metric | PL1 | PL2 | PL3 |
 |---|---|---|---|
@@ -15,8 +15,8 @@
 | `true_bypass` (semantic + detected none) | 0/15 | 0/15 | 0/15 |
 | ML classifier (`lr-tfidf-1.0`) | TP 15/15, FP 0/11 | TP 15/15, FP 0/11 | TP 15/15, FP 0/11 |
 
-- **`pass_without_effect` ≠ true bypass** — CRS decode thiếu 2 lượt mà sẽ không có SQL effect (app Flase cũng như CRS "see" payload không semantically unencoded); do đó nó được classify riêng, 0 contributes vào detection-rate cả true-bypass. Nếu cải tiến để mô-tả payload encode đủ là bypass thật thì sẽ làm breach thật — đây là limited decode budget của CRS.
-- ML/FPR của `lr-tfidf-1.0` **FPR 0/11 = 0.0% , TP recall 15/15 = 100%** trong tập bypass case này (n=26) — không phải equal với F1 0.9076 trên test set trước đó (n=312, FPR 1.7%).
+- **`pass_without_effect` ≠ true bypass** — CRS chỉ decode thiếu 2 lượt decode budget nên không "thấy" SQL payload; app Flask cũng chỉ decode 1 lượt nên payload không sinh SQL effect. Do đó 2 case này được classify riêng và **không** tính vào detection-rate cũng như true-bypass. Nếu CRS decode đủ để nhìn thấy payload này thì nó sẽ chặn được — đây là giới hạn decode budget của CRS, và payload đó chỉ thành breach thật khi app chủ động decode thêm lượt.
+- ML/FPR của `lr-tfidf-1.0` **trong tập bypass case này (n=26): FPR 0/11 = 0.0%, TP recall 15/15 = 100%** — không thể so đối chiếu trực tiếp với F1 0.9076 của OOF validation trước đó (GroupKFold5 group=family, n=312, FPR 1.68%) vì tập mẫu và cách đo hoàn toàn khác nhau.
 
 ## Per-technique breakdown
 
@@ -31,14 +31,14 @@
 | **Parsing-discrepancy (3 ben, 3 mal)** | ben | 1/3 benign_blocked (920640 chunked & Content-Type-missing — transport anomaly chứ không payload) | 2/3 benign_blocked | tăng một chút |
 | | mal | 3/3 blocked, nhưng **2/3 nhờ transport rules** (920640 Content-Type missing trên chunked, 920170 GET-with-body, 920420 content-type policy) không phải SQL-family | 3/3 giữ | giữ |
 
-- Phí tổng: **CRS block tất cả interventions tổng cộng `blocked+benign_blocked`** – PL1: 14 (13 mal+1 ben), PL2: 14, PL3: 23. Mỗi flip và mỗi rule được lưu trong `pl*.json` in evidence folder.
+- Tổng số lần CRS can thiệp (`blocked` + `benign_blocked`): PL1 — **14** (13 mal + 1 ben), PL2 — **14**, PL3 — **23**. Chi tiết từng flip và từng rule nằm trong `pl*.json` trong thư mục evidence.
 - 921180 (HPP detection) hoạt động đúng và chỉ ở PL3 bị kích hoạt. CRS ở PL1/PL2 không có rule hiện diện HPP, chặn HPP nhờ libinjection trực tiếp trên giá trị đầu tiên.
 
 ## Signature semantic — phân biệt kỹ `blocked` vs `detected`
 
 - 3 case `pd-*` blocked: 2 protocol-only (pd-mal-001 do `920640` Content-Type-missing khi chunked; pd-mal-003 do `920420` content-type policy) và 1 chồng lấn (pd-mal-002 có rule SQL-family `942100` đồng thời `920170` GET-with-body) — pd-mal-002 bị chặn bởi cả hai cơ chế, 2 case còn lại chặn hoàn toàn bởi rule transport.
 - 2 case `de-mal-002/003` blocked PL3 chỉ dựa trên rule **920230 (Multiple URL Encoding) + 920272 (Invalid character)** — về mặt SQL-libinjection vẫn không detect — `detected` không tính vì không phải payload-family, nhưng đã bị block.
-- ⇒ **Block bằng protocol không thay thế detection** (`detected` đo payload-family; `block%` đo trải nghiệm tổng thể). Báo cáo slide giữa kỳ đã tách brèves hai cột này.
+- ⇒ **Block bằng protocol không thay thế detection** (`detected` đo payload-family; `block%` đo trải nghiệm tổng thể). Báo cáo giữa kỳ đã tách bạch hai cột này.
 
 ## `pass_without_effect` vs `true_bypass` — phân định cốt lõi
 

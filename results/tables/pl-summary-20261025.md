@@ -8,11 +8,15 @@ snapshots, effective configs, image IDs.
 
 ## Kết quả nhất quán với run tích hợp 18/10
 
-| PL | SQLi detected | SQLi blocked | SQLi tới app | True bypass | Benign blocked | Blocking FPR | Latency round-trip (ms) |
+| PL | SQLi detected | SQLi blocked | SQLi tới app | True bypass | Benign blocked | Blocking FPR | Latency round-trip qua WAF (ms) |
 |---|---|---|---|---|---|---|---|
-| 1 | 3/3 (100%) | 3/3 (100%) | 0/3 | 0/3 (0%) | 0/3 | **0.0%** | 4–35 |
-| 2 | 3/3 (100%) | 3/3 (100%) | 0/3 | 0/3 (0%) | 0/3 | **0.0%** | 4–35 |
-| 3 | 3/3 (100%) | 3/3 (100%) | 0/3 | 0/3 (0%) | 1/3 | **33.3%** | 4–35 |
+| 1 | 3/3 (100%) | 3/3 (100%) | 0/3 | 0/3 (0%) | 0/3 | **0.0%** | 4.4–45.6 |
+| 2 | 3/3 (100%) | 3/3 (100%) | 0/3 | 0/3 (0%) | 0/3 | **0.0%** | 4.4–45.6 |
+| 3 | 3/3 (100%) | 3/3 (100%) | 0/3 | 0/3 (0%) | 1/3 | **33.3%** | 4.4–45.6 |
+
+> Phạm vi đo: min–max `latency_ms` của **18 lượt qua WAF** (6 case × 3 PL) trong
+> run này — min 4.36 ms, max 45.64 ms (BEN-SEARCH PL3). Riêng đường direct
+> control (n=18) đo 18.6–71.2 ms.
 
 ### FP duy nhất ở PL3 (bằng chứng audit)
 
@@ -33,7 +37,8 @@ $env:CRS_PL = '1'; docker compose up -d --wait
 2. FP PL3 không đến từ giá trị mà từ **tên tham số** — khuyến nghị exception
    phải hẹp theo endpoint/parameter (vd exemption cho rule `932350` trên
    `ARGS_NAMES:id` của `/product`), KHÔNG nới threshold chung.
-3. So sánh CRS (100%/FPR 0% PL1) vs ML-WAF v0 (recall 85%, FPR 1.7%) chi tiết
-   ở `results/tables/ml-v0-summary.md` — CẢ HAI đều chạy cùng oracle nhưng đo
-   ở tầng khác nhau: CRS = end-to-end chặn; ML = classifier scoring (chưa chặn).
-   Sau giữa kỳ có proxy enforcement để so cùng một chiều.
+3. So sánh CRS (100%/FPR 0% PL1) vs ML-WAF v0 (recall 85%, FPR 1.7% — OOF
+   GroupKFold5 trên n=312, chi tiết ở `results/tables/ml-v0-summary.md`) —
+   CẢ HAI đều chạy cùng oracle nhưng đo ở tầng khác nhau: CRS = end-to-end chặn
+   (block + audit); ML = classifier scoring (`score ≥ 0.5`, chưa nằm trong
+   đường chặn request). Sau giữa kỳ có proxy enforcement để so cùng một chiều.

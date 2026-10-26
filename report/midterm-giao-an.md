@@ -11,26 +11,28 @@
 
 ### 1.1. Đặt vấn đề
 
-WAF là lớp phòng thủ lớp 7 phổ biến nhất. Có hai hướng tiếp cận:
+**WAF (Web Application Firewall)** là lớp phòng thủ lớp 7 phổ biến nhất. Có hai hướng tiếp cận:
 
-- **Signature-based** (ModSecurity + OWASP CRS): khớp pattern/mã hóa đã biết.
-- **ML-based**: học từ corpus labeled, phân loại request thành malicious/benign.
+- **Signature-based** (ModSecurity + **OWASP CRS** – Core Rule Set): khớp pattern/mã hóa đã biết.
+- **ML-based** (Machine Learning): học từ corpus labeled, phân loại request thành malicious/benign.
 
 Cả hai đều có thể bị **vượt qua (bypass)** bằng phép biến đổi payload mà **WAF và ứng
 dụng diễn giải khác nhau**. Điểm mấu chốt: payload chỉ là chuỗi byte; "ý nghĩa" của
 nó là một **hàm của parser** đọc nó. Khi `WAF parser ≠ App parser`, cái WAF nhìn thấy
 không phải là cái ứng dụng thực thi — đây là cơ chế gốc của bypass (cốt lõi của
-nghiên cứu WAFFLED, ACSAC 2025; +10% phần chấm nếu nhóm nắm được và chứng minh được).
+nghiên cứu WAFFLED, ACSAC 2025 — điểm cộng rõ ràng nếu nhóm nắm và chứng minh được).
 
 ### 1.2. Ý tưởng đồ án
 
-Dựng một **lab local 4 service** (Docker): Web App Flask cố tình vulnerable
-(Flask + PyMySQL + MySQL 8.4) → WAF signature (ModSecurity v3 + CRS 4.30) →
-và một WAF ML (TF-IDF + Logistic Regression/SVM) chạy song song. Sau đó:
+Dựng một **lab local 4 service** (Docker): Client → WAF signature (ModSecurity
+v3 + CRS 4.30) → Web App Flask cố tình vulnerable (Flask + PyMySQL + MySQL
+8.4); song song đó, một **WAF ML** ở dạng scoring API (TF-IDF + Logistic
+Regression — đã chốt `lr-tfidf-1.0`, chưa làm đường chặn). Sau đó:
 
-1. Chạy bộ **baseline SQLi/benign** để đo hiệu suất gốc của từng WAF và False
-   Positive theo Paranoia Level 1→2→3;
-2. Áp **4 nhóm kỹ thuật né tránh** trong giáo trình C4 — HPP/Fragmentation,
+1. Chạy bộ **baseline SQLi/benign** (SQLi = SQL Injection) để đo hiệu suất gốc của từng WAF và False
+   Positive theo Paranoia Level (PL) 1→2→3;
+2. Áp **4 nhóm kỹ thuật né tránh** trong giáo trình C4 — HPP (HTTP Parameter
+   Pollution) / Fragmentation,
    Double Encoding, Case Variation + SQL Comment, Parsing Discrepancy — tái lập
    theo bài báo công khai (WAF-A-MoLE, AdvSQLi) chỉ trên lab của nhóm;
 3. Đo **bypass rate theo từng nhóm kỹ thuật**, so sánh **CRS vs ML**;
@@ -67,20 +69,59 @@ Map theo roadmap 12 tuần (tuần 1 bắt đầu 28/09/2026; hiện đang ở *
 |---|---|---|
 | T01–02: Lab Docker 4 service | ✅ Hoàn thành 13/10 (milestone đúng hạn) | commit `0c1397`; `docker compose ps` → 4 container healthy |
 | T03–04: ModSecurity+CRS & Baseline | ✅ Hoàn thành 10/10 (lab SQLite PL1–3) + 18/10 (tích hợp Flask/MySQL) | `report/waf-crs-baseline.md`, `report/crs-docker-integration.md`, raw evidence `results/raw/crs*/*` |
-| T05–06: ML-WAF pipeline & model | ✅ **Huấn luyện xong 25/10**: dataset 312 mẫu tự sinh + TF-IDF/LogReg, `model_version lr-tfidf-1.0` chạy thật trong container; còn review nhóm + mở rộng corpus | `waf-ml/train.py`, `results/tables/ml-v0-summary.md`, `waf-ml/app.py` |
-| T07–08: HPP & Double-Encoding | ⏳ Chưa bắt đầu — schema test-case đã chốt 19/10 | `dataset/bypass/hpp|double-encoding/` đang trống |
-| T09: Case Variation + SQL Comment | ⏳ Chưa bắt đầu | `dataset/bypass/case-comment/` trống |
-| T10: Parsing Discrepancy | ⏳ Chưa bắt đầu — đã chọn hướng trích WAFFLED | `dataset/bypass/parsing-discrepancy/` trống |
-| T11: Tổng hợp & phân tích | ⏳ Chưa — runner chưa implement nhưng contract output đã chốt | `scripts/README.md` |
-| T12: Hardening & báo cáo | 🔶 Sơ bộ — phân tích FP PL2/PL3 đã có | mục FP trong `report/waf-crs-baseline.md` |
+| T05–06: ML-WAF pipeline & model | ✅ **Train + serving xong 25/10**: dataset 312 mẫu tự sinh, TF-IDF/LogReg, OOF GroupKFold5 theo family (F1 90.76%/FPR 1.68%), `lr-tfidf-1.0` chạy thật trong `/score` (7/7 probe khớp). Còn: mở rộng corpus + review nhóm. **ML mới là scoring API, chưa nằm trong đường chặn request** | `waf-ml/train.py`, `waf-ml/server.py`, `results/tables/ml-v0-summary.md`, container `/app/artifacts/metrics.json` |
+| T07–08: HPP & Double-Encoding | ✅ **25/10 — trước kế hoạch:** corpus (3 ben + 3 mal HPP; 2 ben + 4 mal DE), runner, matrix PL1–3; chưa có ML enforcement nên phần "ML chặn" chưa đo được end-to-end | `dataset/bypass/hpp/cases.json`, `dataset/bypass/double-encoding/cases.json`, `results/tables/bypass-matrix-20261025.md` |
+| T09: Case Variation + SQL Comment | ✅ **25/10:** 3 ben + 5 mal; CRS bắt 100% mọi PL (libinjection `942100` không phân biệt hoa-thường + `942270`) | `dataset/bypass/case-comment/cases.json` |
+| T10: Parsing Discrepancy | ✅ **25/10:** 3 ben + 3 mal; CRS chặn hết qua rule transport (920640/920170/920420) — **chưa đạt case true_bypass (kết quả âm có giá trị)** | `dataset/bypass/parsing-discrepancy/cases.json` |
+| T11: Tổng hợp & phân tích | 🔶 Sơ bộ: matrix PL1–3 + bảng per-technique + 4 SVG có thật; còn precision/recall per-technique và rule hotlist | `results/tables/*`, `results/graphs/*` |
+| T12: Hardening & báo cáo | 🔶 Sơ bộ — phân tích FP PL2/PL3 đã có; khuyến nghị exception chưa viết | mục FP trong `report/waf-crs-baseline.md` |
 
-**Ước tính tổng tiến độ: ~40% kế hoạch 12 tuần — nhỉnh hơn pha giữa kỳ một nhịp.**
-Kết quả thực nghiệm đã có (CRS trên backend thật): PL1 chặn 100% SQLi smoke
-(6 case), 0% true bypass, FPR 0%; PL2 giữ nguyên; PL3 FPR 33% (rule `932350`
-chặn nhầm tham số tên `id`). Song song đó, lab SQLite 13 case cho: PL1 100%/0% FPR,
-PL3 37.5% FPR (942131, 932350, 920272 — FP UTF-8 tiếng Việt). Run PL mới
-`20261025T172523Z-cecdfdeb` (26/10) tái lập đúng 3 số dòng trên sau khi ML v0
-đã tích hợp (bảng: `results/tables/pl-summary-20261025.md`).
+**Ước tính tổng tiến độ: ~60% kế hoạch 12 tuần** — kết quả thực nghiệm (corpus 4 nhóm
++ runner + matrix PL1–3) hoàn tất trước kế hoạch ~2 tuần; phần còn lại chủ yếu là
+phân tích sâu, ML enforcement và hardening.
+
+### Kết quả giữa kỳ — bảng tóm tắt có bằng chứng
+
+**A. CRS baseline trên backend thật (smoke 6 case × 3 PL** — run
+`20261025T172523Z-cecdfdeb`, bảng chi tiết: `results/tables/pl-summary-20261025.md`):
+
+| PL | SQLi detected | SQLi blocked | True bypass | Benign blocked (FPR) |
+|---|---|---|---|---|
+| 1 | 3/3 (100%) | 3/3 (100%) | 0/3 | 0/3 (0%) |
+| 2 | 3/3 (100%) | 3/3 (100%) | 0/3 | 0/3 (0%) |
+| 3 | 3/3 (100%) | 3/3 (100%) | 0/3 | 1/3 (33.3% — `932350` match **tên tham số** `id`) |
+
+**B. Bypass matrix SQLi evasion (26 case = 11 benign + 15 malicious × 3 PL = 78 lượt** — run
+`20261025T182650Z-4e5c2027`, bảng chi tiết: `results/tables/bypass-matrix-20261025.md`):
+
+| Metric (trên 15 malicious / 11 benign) | PL1 | PL2 | PL3 |
+|---|---|---|---|
+| **SQL-family detection** (có rule `942xxx`) | 11/15 (73.3%) | 11/15 (73.3%) | 11/15 (73.3%) |
+| **Tổng malicious bị block** | 13/15 (86.7%) | 13/15 (86.7%) | 15/15 (100%) |
+| — trong đó chỉ nhờ rule protocol (không có rule SQLi) | 2 (920640/920420) | 2 | 4 (+ de-mal-002/003 nhờ 920230+920272) |
+| **Benign bị block (FPR)** | 1/11 (9.1%) | 1/11 (9.1%) | 8/11 (72.7%) |
+| **True bypass** (oracle semantic) | 0/15 | 0/15 | 0/15 |
+| `pass_without_effect` (WAF pass, app không thực thi) | 2/15 | 2/15 | 0/15 |
+| ML classifier `lr-tfidf-1.0` (scoring, `score ≥ 0.5` = malicious) | TP 15/15, FP 0/11 | TP 15/15, FP 0/11 | TP 15/15, FP 0/11 |
+
+Đọc bảng: **SQL-family recall (detected) ≠ tổng block**. 13/15 = 86.7% chỉ là tỷ lệ
+CRS chặn tổng; ở PL3 sự tăng chặn đến từ rule protocol (920230/920272/921180/949110)
+chứ không phải phát hiện thêm payload SQL — chính cơ chế này đẩy FPR benign lên 72.7%.
+
+**C. ML model `lr-tfidf-1.0` — OOF validation (GroupKFold 5-fold group=family, n=312)** —
+chi tiết: `results/tables/ml-v0-summary.md`; artifact container `/app/artifacts/metrics.json`:
+
+| Metric | Giá trị | Ghi chú |
+|---|---:|---|
+| Accuracy / Precision (malicious) / Recall | 92.63% / 97.41% / 84.96% | confusion **TN 176 · FP 3 · FN 20 · TP 113** |
+| **F1 / FPR / FNR / AUROC** | **0.9076 / 1.68% / 15.04% / 0.9757** | FPR = 3/179 benign bị nhãn malicious |
+| Điểm yếu per-family | stacked 40%, boolean 55.6% | families nhỏ (5–8 mẫu/family) |
+
+Số liệu ML là **out-of-fold (OOF) validation** bằng GroupKFold 5-fold gộp theo
+family — **không phải** kết quả trên một held-out test set độc lập. Model serving
+cuối cùng được fit trên toàn bộ n=312; corpus nhỏ, tự sinh nên chỉ chứng minh
+pipeline đúng, không phải benchmark production và **không so sánh trực tiếp 1-1
+với CRS** (khác protocol đo, tập mẫu và cách tính FPR).
 
 ---
 
@@ -103,13 +144,20 @@ PL3 37.5% FPR (942131, 932350, 920272 — FP UTF-8 tiếng Việt). Run PL mới
    (`942xxx` = SQLi detect, `949110` = chặn), PL 1/2/3 thông qua biến `CRS_PL`.
 5. **ML scoring API — model học máy thật (25/10)**: `POST /score {"text"} →
    {"label","score","model_version"}` giờ trả nhãn từ **TF-IDF + LogisticRegression
-   Euclidean `lr-tfidf-1.0`** train ngay trong container (GroupKFold leak-safe theo
-   family: F1 90.8%/FPR 1.7%); regex stub chỉ còn fallback nếu image thiếu model.
+   `lr-tfidf-1.0`** train ngay trong container (OOF GroupKFold5 theo family:
+   F1 90.76%/FPR 1.68% — không phải held-out test set); regex stub chỉ còn
+   fallback nếu image thiếu model. **Phạm vi thật: chỉ là scoring API song song
+   (`:8082`), không nằm trong đường chặn request** — enforcement inline là kế
+   hoạch tuần 07 (mục 4.2).
 6. **Schema test-case JSON chuẩn hóa** (điều kiện để biểu diễn HPP): `params`/`form` là
    **danh sách cặp có thứ tự**, giữ nguyên duplicate key — yêu cầu bắt buộc để
    biểu diễn HPP/parsing discrepancy (JSON object không được).
-7. **Pipeline automation (dự kiến)**: `scripts/run_experiment.py` gửi payload →
-   thu CRS decision + ML decision + app behavior cùng run-ID → CSV/JSON.
+7. **Pipeline automation — đã có (25/10)**: `scripts/run_experiment.py` nạp corpus
+   26 case → gửi qua 2 đường (direct control + qua WAF) → thu CRS decision
+   (audit correlation) + ML score + app behavior cùng run-ID → outcome classifier
+   (`blocked / allowed / allowed_detected / pass_without_effect / true_bypass /
+   benign_blocked / control_invalid / incomplete`) → `results.json|csv` +
+   `summary.json` + metadata fingerprint trong thư mục evidence riêng từng run.
 8. **Tính bảo mật của chính lab**: không secret committed, không dataset raw,
    port loopback, tool tấn công (sqlmap/WAF-A-MoLE) nằm ngoài image compose.
 
@@ -147,6 +195,10 @@ PL3 37.5% FPR (942131, 932350, 920272 — FP UTF-8 tiếng Việt). Run PL mới
 - Log song song cùng correlation ID: audit WAF ↔ app evidence JSONL
   (`raw_target`, `parsed_pairs`, SQL, `row_ids`, `reference_row_ids`,
   `semantic_effect`, `http_status`).
+- **waf-ml không nằm trong luồng request** (compose chỉ forward `waf-crs →
+  web-app:5000`); client gọi `/score` trên `:8082` để evaluation/so sánh. Nói
+  cách khác: hiện tại sản phẩm có **CRS chặn end-to-end** và **ML scoring
+  độc lập**, chưa có "ML-WAF chặn inline".
 
 ### 4.2. Lộ đường xử lý ML (đang chờ nhóm review — slide 9)
 
@@ -161,16 +213,17 @@ Chốt trước tuần 07 để đo được "ML bypass rate" end-to-end, giữ 
 |---|---|---|
 | Hiếu | docker-compose, Dockerfiles, DB init, docs | ✅ xong, hợp khối |
 | Huy | ModSecurity + CRS (PL1–3, audit) | ✅ baseline + evidence xong |
-| Đặng Văn Hoàng | waf-ml (dataset, TF-IDF+LR/SVM, API) | ✅ lr-tfidf-1.0 train xong 25/10 (F1 90.8%, FPR 1.7%); còn review nhóm + mở rộng corpus |
-| Long | test-case 4 kỹ thuật bypass | ⏳ schema chốt; payload tuần 07+ |
-| Huỳnh Như Hoàng | run_experiment.py + metrics + chart | ⏳ contract chốt; implement tuần 07+ |
+| Đặng Văn Hoàng | waf-ml (dataset, TF-IDF+LR, API) | ✅ lr-tfidf-1.0 train + serving xong 25/10 (OOF GroupKFold5: F1 90.76%, FPR 1.68%); còn mở rộng corpus + review; chưa có enforcement |
+| Long | test-case 4 kỹ thuật bypass | ✅ 25/10: corpus 26 case (schema `docs/interfaces.md` §1, có ben/mal đủ 4 nhóm + transport/control extension) |
+| Huỳnh Như Hoàng | run_experiment.py + metrics + chart | ✅ 25/10: runner + matrix PL1–3 + bảng/SVG; còn precision-recall per-technique + rule hotlist |
 
 ---
 
 ## PHẦN 5 — CÁC KỊCH BẢN DEMO (slide 10–14)
 
 > Chia 2 loại: **Demo sống** trên lab đã dựng (A–D) và **Demo bằng slide/
-> bộ test-case** cho phần chưa làm (E, ý tưởng kịch bản sau giữa kỳ).
+> bộ test-case** (E — kịch bản trình bày; phần tương ứng đã chạy 25/10).
+> Các kịch bản mục PHẦN 5 là **speaker notes/demo script**, tách khỏi nội dung báo cáo.
 
 ### Demo A — Dựng lab 4 service (2 phút)
 
@@ -228,7 +281,7 @@ curl.exe -s http://localhost:8082/health
 echo '{"text":"-1 UNION SELECT id,username FROM users"}' | curl.exe -s -X POST http://localhost:8082/score -H "Content-Type: application/json" -d "@-"
 # → {"label":"malicious","score":0.93,...}
 # benign tiếng Việt UTF-8 → benign mạnh (giống FP PL3 của CRS mà ML phát hiện tốt):
-echo '{"text":"màn hình laptop 450"}' | ...   # → {"label":"benign","score":0.07}
+echo '{"text":"màn hình laptop 450"}' | ...   # → {"label":"benign","score":0.0727}
 
 # Boundary case — ví dụ cộng thêm về threshold (0.5):
 #   "admin' -- #" → {"label":"malicious","score":0.5057}
@@ -238,15 +291,16 @@ echo '{"text":"màn hình laptop 450"}' | ...   # → {"label":"benign","score":
 Kể câu chuyện (3 nhịp, 45 giây):
 1. *"Model TF-IDF + LogReg được train trong container bằng sklearn pin sẵn,
    dataset tự sinh 312 mẫu, GroupKFold theo family nên mutation 'anh em' không
-   được pha trộn giữa train/test"* — F1 90.8%, 20 miss do corpus nhỏ.
-2. *"Per-family cho thấy ML yếu ở stacked (40%) / boolean (56%)"* — cơ hội
+   được pha trộn giữa train/test"* — F1 90.76% là **OOF validation (không phải
+   held-out test set)**; 20 miss do corpus nhỏ; model serving fit trên toàn bộ 312.
+2. *"Per-family cho thấy ML yếu ở stacked (40%) / boolean (55.6%)"* — cơ hội
    cho tuần 07: corpus công khai (Kaggle SQLi 40k) + mutation WAF-A-MoLE.
 3. Bảng/chart phục vụ: `results/tables/ml-v0-summary.md`
    + `results/graphs/waf-ml-family-detection.svg` + `results/graphs/pl-fpr-detection.svg`.
 
-### Demo E — CORPUS 4 kỹ thuật bypass (kịch bản sau giữa kỳ — slide)
+### Demo E — CORPUS 4 kỹ thuật bypass (đã chạy 25/10 — Bản slide)
 
-Bộ test-case dự kiến cho `dataset/bypass/<technique>/*.json` (Long sở hữu):
+Bộ test-case cho `dataset/bypass/<technique>/cases.json` (Long sở hữu):
 
 | Kỹ thuật | Payload mẫu | Cơ chế gốc (chiều WAF ≠ App) | Kỳ vọng đo lường |
 |---|---|---|---|
@@ -273,6 +327,9 @@ kết quả phủ định có giá trị đúng như bảng trên dự đoán).
 - *"Request qua WAF không để lộ gì?"* → DB không publish port, HTTP chỉ bind `127.0.0.1`, seed user giả trong lab, không có dữ liệu thật.
 - *"Có dùng WAF-A-MoLE / sqlmap không?"* → Có, chỉ nhắm mục tiêu lab do nhóm kiểm soát (`scripts/requirements-attack.txt`, không cài vào image compose).
 - *"PL3 FPR BEN-PRODUCT là chuyện gì?"* → Rule `932350` match **tên tham số** `id` (trùng tên lệnh Unix `id`), không nâng giá trị `1`. FPR 33% → hardening cần exception hẹp theo endpoint/param, có evidence.
+- *"ML đã chặn request chưa?"* → **Chưa** — `/score` là scoring API song song ở `:8082` (compose forward `waf-crs → web-app`, không qua ML); enforcement inline là kế hoạch tuần 07 (`docs/architecture.md`). Trong bypass matrix, ML nhãn chạy evaluation-only: TP 15/15, FP 0/11.
+- *"Số F1 90.76% đo trên tập nào?"* → OOF validation GroupKFold 5-fold theo family trên n=312 — **không phải held-out test set độc lập**; model serving fit trên toàn bộ 312; corpus tự sinh nhỏ nên không claim production readiness.
+- *"Vì sao không so sánh trực tiếp CRS vs ML cùng bảng?"* → Protocol khác nhau: CRS đo end-to-end qua đường chặn (block + audit), ML chỉ đo classifier trên string (`score ≥ 0.5`); tập mẫu/định nghĩa FPR khác nhau → chỉ so ở tầng khái niệm, không gộp số.
 
 ---
 
@@ -282,10 +339,10 @@ kết quả phủ định có giá trị đúng như bảng trên dự đoán).
 |---|---|---|---|
 | 05–06 (✅ 25/10) | Dataset SQLi/benign → TF-IDF + LR → thay stub `/score` (giữ nguyên contract) — `lr-tfidf-1.0` F1 90.8%/FPR 1.7%, train-in-container | Đặng Văn Hoàng | `waf-ml/train.py` + `results/tables/ml-v0-summary.md` |
 | 05–06 (đang) | Review cơ chế ML enforcement proxy (option 1) | Hiếu + ĐVH + Huỳnh | chốt trước tuần 07, cập nhật `docker-compose.yml` với proxy scoring |
-| 07–08 | `run_experiment.py` + corpus HPP + double-encoding; chạy trên CRS **và** ML | Long + Huỳnh | ✅ 25/10: runner + corpus 26 case + matrix PL1–3 (bypass 0, FPR PL3 72.7%) |
+| 07–08 | `run_experiment.py` + corpus HPP + double-encoding; chạy trên CRS **và** ML | Long + Huỳnh | ✅ 25/10: runner + corpus 26 case + matrix PL1–3 (bypass 0, FPR PL3 72.7%). Còn: đo lại trên **ML enforcement path** sau khi chốt proxy |
 | 09 | corpus case/comment | Long | ✅ 25/10: 3 ben + 5 mal (cc-mal-004 fixed payload → effect true) |
 | 10 | corpus parsing-discrepancy (trích WAFFLED) | Long | ✅ 25/10: 3 ben + 3 mal; CRS chặn hết chunked/GET-body/CT-policy ở tầng transport (920640/920170/920420) — chưa đạt case "true bypass" (kết quả phủ định có giá trị) |
-| 11 | gộp kết quả, TPR/FPR/FNR, precision/recall/F1, bar chart, rule ID hotlist | Huỳnh | bảng tổng kết bằng kỹ thuật |
+| 11 | gộp kết quả, TPR/FPR/FNR, precision/recall/F1, bar chart, rule ID hotlist | Huỳnh | 🔶 sơ bộ: matrix PL1–3 + per-technique tables + 4 SVG; còn precision/recall per-technique + rule hotlist |
 | 12 | PL1→PL3 hardening + exception hẹp + re-test regression; report + slide có số liệu | cả nhóm | deliverables cuối kỳ |
 
 Lưu ý khi biên soạn khuyến nghị: với từng bypass, nêu **cấu hình PL + exception
@@ -303,5 +360,8 @@ theo param/endpoint và phải dựa trên evidence từng rule match.
 4. Experimental dataset (raw → processed → evaluated) (⏳ mức DPO)
 5. Kết quả định lượng: Detection/Bypass/FPR/FNR/Precision/Recall/F1 (✅ mức matrix PL1–3 + ML n=312; ⏳ đầy đủ precision/recall per-technique)
 6. Visualization CRS vs ML (✅ `results/graphs/bypass-decisions-by-pl.svg` + `bypass-fpr-by-technique.svg`)
-7. Khuyến nghị cấu hình CRS theo PL + exception (🔶 sơ bộ — matrix ưu tiên PL1: FPR 9.1%, SQL-family recall 86.7% nhất quán PL1→PL3)
+7. Khuyến nghị cấu hình CRS theo PL + exception (🔶 sơ bộ — matrix cho thấy
+   PL1: block 13/15 = 86.7% với FPR 9.1%; **SQL-family detection 11/15 = 73.3%
+   ổn định PL1→PL3**; PL3 block 100% nhưng FPR 72.7% — hướng khuyến nghị: PL1 +
+   exception hẹp theo evidence, KHÔNG dùng số 86.7% làm "SQL-family recall")
 8. Report + Presentation (⏳ chuẩn giữa kỳ theo format của môn)

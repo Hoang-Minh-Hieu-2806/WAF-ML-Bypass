@@ -10,14 +10,13 @@ Trạng thái: **regex stub đã bị thay bằng model học máy chạy thật
 | Pipeline | `TfidfVectorizer(char_wb, ngram 2–5, sublinear_tf)` → `LogisticRegression(C=2.0)` |
 | Ngôn ngữ huấn luyện trong image | Python 3.11 + `scikit-learn==1.7.1` (pin trong `waf-ml/requirements.txt`) |
 | Dataset v0 | 312 mẫu tự sinh, không RNG: **133 malicious / 179 benign**, 16 family |
-| Tách train/test | **GroupKFold 5 fold, group = family** — mutation trùng template bị tách cả nhóm → không leakage |
-| Train/test "admin' -- " và UTF-8 benign đều nằm tách nhóm |
+| Chia train/val (OOF) | **GroupKFold 5 fold, group = family** — các mutation trùng template (ví dụ `admin' -- `) và benign UTF-8 nằm nguyên nhóm trong fold, không leakage |
 | Threshold chuẩn chặn | `score ≥ 0.5` → malicious |
 | Randomness | Không (dữ liệu template, GroupKFold deterministic) |
-| model_version | `lr-tfidf-1.0` (container) — `ml_model_version` tại metrics.json |
-| Artifact | `model.joblib` (36KB) + `metrics.json` — ở `/app/artifacts` → push tái lập: `docker compose build waf-ml` lại tự train (`server.py`) |
+| model_version | `lr-tfidf-1.0` (container) — trường `model_version` trong `metrics.json` |
+| Artifact | `model.joblib` (36KB) + `metrics.json` — tại `/app/artifacts` trong container, chỉ tồn tại trong image; tái lập bằng `docker compose build waf-ml` (lần build sau tự train lại) |
 
-## Nghiệm số 100% metric (5-fold CV gộp theo GroupKFold)
+## Chỉ số OOF validation (GroupKFold 5-fold, group=family)
 
 | Metric | Giá trị | Chi tiết |
 |---|---:|---|
@@ -30,7 +29,12 @@ Trạng thái: **regex stub đã bị thay bằng model học máy chạy thật
 | AUROC | 97.6% | |
 | Confusion | TN=176 / FP=3 / FN=20 / TP=113 | |
 
-## Detection theo family (mot slide 9: điểm yếu ML đúng chỗ nào)
+> **Đọc số này sao cho đúng:** đây là **out-of-fold (OOF) validation trên chính
+> tập 312 mẫu**, không phải kết quả trên một held-out test set độc lập. Model
+> đang serving trên `:8082` được fit trên **toàn bộ 312 mẫu**; corpus nhỏ và tự
+> sinh nên số chỉ chứng minh pipeline đúng — không phải benchmark production.
+
+## Detection theo family (phục vụ slide 9: điểm yếu ML đúng chỗ nào)
 
 | Family | Detection | Ghi chú phân tích |
 |---|---:|---|
@@ -62,9 +66,11 @@ Trạng thái: **regex stub đã bị thay bằng model học máy chạy thật
 
 1. v0 là dataset **nhỏ, tự sinh** — nhiều families chỉ có 5–8 mẫu; số con số trên
    chỉ chứng minh pipeline đúng, **không** là benchmark so sánh với CRS.
-2. So sánh CRS vs ML cần đo **end-to-end qua đường chặn** — `waf-ml` hiện vẫn
-   chỉ là scoring API (proxy enforcement chờ chốt trước tuần 07);
-   bypass experiments tuần 07+: request chạy qua CRS và gọi `/score`; ML không đứng đột.
+2. So sánh CRS vs ML cần đo **end-to-end qua đường chặn** — hiện `waf-ml` vẫn
+   chỉ là **scoring API song song**, không nằm trong đường chặn request; proxy
+   enforcement chờ chốt trước tuần 07. Trong bypass matrix 25/10 (`../tables/bypass-matrix-20261025.md`),
+   ML chỉ được gọi evaluation-only bên cạnh CRS (TP 15/15, FP 0/11 trên 26 case) —
+   không phải mô hình chặn inline.
 3. Chưa chống XSS (corpus SQLi-only) và chưa có vòng mutation tự tối ưu như
    WAF-A-MoLE — đó là giai đoạn 2 sau giữa kỳ.
 
