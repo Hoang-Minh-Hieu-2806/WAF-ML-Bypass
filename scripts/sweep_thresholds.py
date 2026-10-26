@@ -18,8 +18,7 @@ def metrics(rows, threshold):
     ratio = lambda a, b: round(100 * a / b, 2) if b else None
     precision = ratio(tp, tp + fp)
     recall = ratio(tp, tp + fn)
-    f1 = (round(2 * precision * recall / (precision + recall), 2)
-          if precision is not None and recall is not None and precision + recall else 0.0)
+    f1 = ratio(2 * tp, 2 * tp + fp + fn) or 0.0
     return {"threshold": threshold, "tp": tp, "fp": fp, "fn": fn, "tn": tn,
             "precision_pct": precision, "recall_pct": recall, "f1_pct": f1,
             "fpr_pct": ratio(fp, fp + tn)}
@@ -35,7 +34,14 @@ def main():
     by_case = {}
     for row in raw:
         if (row.get("ml") or {}).get("score") is not None:
-            by_case.setdefault(row["case_id"], row)
+            previous = by_case.setdefault(row["case_id"], row)
+            if previous is not row:
+                previous_signature = (previous["label"], previous["ml"]["score"],
+                                      previous["ml"].get("model_version"))
+                current_signature = (row["label"], row["ml"]["score"],
+                                     row["ml"].get("model_version"))
+                if current_signature != previous_signature:
+                    raise SystemExit(f"Inconsistent repeated ML result: {row['case_id']}")
     if not by_case:
         raise SystemExit("No ML scores found in results")
     print("| Threshold | TP | FP | FN | TN | Precision | Recall | F1 | FPR |")

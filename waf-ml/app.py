@@ -34,6 +34,8 @@ from pydantic import BaseModel
 MODEL_DIR = Path(os.getenv("ML_MODEL_DIR", "artifacts"))
 MODEL_VERSION = "stub-0.1"
 ML_THRESHOLD = float(os.getenv("ML_THRESHOLD", "0.5"))
+if not 0.0 <= ML_THRESHOLD <= 1.0:
+    raise RuntimeError("ML_THRESHOLD must be between 0 and 1")
 ML_BACKEND = os.getenv("ML_BACKEND", "http://web-app:5000")
 ML_EVIDENCE_LOG = Path(os.getenv("ML_EVIDENCE_LOG", "/evidence/ml.jsonl"))
 _pipeline = None

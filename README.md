@@ -92,7 +92,7 @@ Sử dụng:
 
 Xây dựng một WAF ML trong môi trường local.
 
-Pipeline dự kiến:
+Pipeline hiện tại:
 
 ```text
 HTTP Request
@@ -111,7 +111,8 @@ ML Model
      └── Benign
 ```
 
-Mô hình cụ thể sẽ được lựa chọn sau giai đoạn đánh giá dataset và baseline.
+Baseline hiện dùng TF-IDF ký tự `char_wb` 2–5 kết hợp Logistic Regression;
+threshold enforcement mặc định là 0.5 và có thể cấu hình bằng `ML_THRESHOLD`.
 
 ---
 
@@ -537,14 +538,15 @@ và thuận tiện cho việc quản lý container độc lập.
 
 ### Machine Learning
 
-Dự kiến sử dụng:
+Đang sử dụng:
 
 - Python
 - NumPy
 - Pandas
 - scikit-learn
 
-Mô hình cụ thể sẽ được lựa chọn sau khi đánh giá dataset và baseline.
+Mô hình baseline đã chọn là TF-IDF ký tự + Logistic Regression; kết quả
+validation và giới hạn dataset được ghi tại `results/tables/ml-v0-summary.md`.
 
 ### Visualization
 
@@ -1010,7 +1012,7 @@ Repository này thể hiện các kỹ năng phục vụ CV:
 
 ## 🚧 Project Status
 
-**Status: Docker lab + CRS baseline/integration đã kiểm chứng; ML model và bypass experiments đang triển khai**
+**Status: Docker lab, CRS baseline, ML enforcement và bypass matrix PL1–3 đã được kiểm chứng; đang phân tích kết quả và hardening.**
 
 ### Completed
 

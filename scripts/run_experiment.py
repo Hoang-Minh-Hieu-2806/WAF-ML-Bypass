@@ -61,6 +61,8 @@ APP = ROOT / "logs/application/integrated/app.jsonl"
 ML_LOG = ROOT / "logs/waf-ml/integrated/ml.jsonl"
 DEFAULT_CORPUS = ROOT / "dataset/bypass"
 TECHNIQUES = ("hpp", "double-encoding", "case-comment", "parsing-discrepancy")
+CRS_INCOMPLETE = {"transport_error", "missing_audit", "unclassified"}
+ML_INCOMPLETE = {"transport_error", "missing_evidence", "unclassified"}
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -223,18 +225,26 @@ def control_check(direct_evidence, expected_effect):
 def summarize(rows):
     malicious = [r for r in rows if r["label"] == "malicious"]
     benign = [r for r in rows if r["label"] == "benign"]
-    valid_mal = [r for r in malicious if r["outcome"] != "control_invalid"]
-    valid_ben = [r for r in benign if r["outcome"] != "control_invalid"]
+    valid_mal = [r for r in malicious
+                 if r["outcome"] != "control_invalid" and r["outcome"] not in CRS_INCOMPLETE]
+    valid_ben = [r for r in benign
+                 if r["outcome"] != "control_invalid" and r["outcome"] not in CRS_INCOMPLETE]
+    ml_valid_mal = [r for r in malicious
+                    if (r.get("ml_enforcement") or {}).get("outcome")
+                    not in ML_INCOMPLETE | {"control_invalid", None}]
+    ml_valid_ben = [r for r in benign
+                    if (r.get("ml_enforcement") or {}).get("outcome")
+                    not in ML_INCOMPLETE | {"control_invalid", None}]
     detected = sum(r.get("detected") for r in valid_mal)
     blocked = sum(r.get("waf_decision") == "blocked" for r in valid_mal)
     bypass = sum(r.get("true_bypass") is True for r in valid_mal)
     fp = sum(r.get("waf_decision") == "blocked" for r in valid_ben)
     ml_blocked = sum((r.get("ml_enforcement") or {}).get("decision") == "blocked"
-                     for r in valid_mal)
+                     for r in ml_valid_mal)
     ml_bypass = sum((r.get("ml_enforcement") or {}).get("true_bypass") is True
-                    for r in valid_mal)
+                    for r in ml_valid_mal)
     ml_fp = sum((r.get("ml_enforcement") or {}).get("decision") == "blocked"
-                for r in valid_ben)
+                for r in ml_valid_ben)
     pct = lambda count, total: round(100 * count / total, 2) if total else None
     def latency_stats(field):
         values = sorted(float(r[field]) for r in rows if r.get(field) is not None)
@@ -257,21 +267,26 @@ def summarize(rows):
         "fpr_blocking_pct": pct(fp, len(valid_ben)),
         "bypass_rate_pct": pct(bypass, len(valid_mal)),
         "ml_tp": ml_blocked, "ml_fp": ml_fp,
+        "ml_malicious_total": len(ml_valid_mal),
+        "ml_benign_total": len(ml_valid_ben),
         "ml_malicious_blocked": ml_blocked,
         "ml_true_bypasses": ml_bypass,
         "ml_benign_blocked": ml_fp,
-        "ml_block_rate_pct": pct(ml_blocked, len(valid_mal)),
-        "ml_bypass_rate_pct": pct(ml_bypass, len(valid_mal)),
-        "ml_fpr_blocking_pct": pct(ml_fp, len(valid_ben)),
+        "ml_block_rate_pct": pct(ml_blocked, len(ml_valid_mal)),
+        "ml_bypass_rate_pct": pct(ml_bypass, len(ml_valid_mal)),
+        "ml_fpr_blocking_pct": pct(ml_fp, len(ml_valid_ben)),
         "crs_latency_median_ms": crs_latency["median_ms"],
         "crs_latency_p95_ms": crs_latency["p95_ms"],
         "ml_latency_median_ms": ml_latency["median_ms"],
         "ml_latency_p95_ms": ml_latency["p95_ms"],
         "inconclusive": sum(r.get("outcome") in ("pass_without_effect",)
                             for r in rows),
-        "incomplete": sum(r.get("outcome") in ("transport_error", "missing_audit",
-                                               "unclassified") for r in rows),
+        "incomplete": sum(r.get("outcome") in CRS_INCOMPLETE for r in rows),
+        "ml_incomplete": sum((r.get("ml_enforcement") or {}).get("outcome")
+                             in ML_INCOMPLETE for r in rows),
         "control_invalid_total": sum(r.get("outcome") == "control_invalid" for r in rows),
+        "ml_control_invalid_total": sum((r.get("ml_enforcement") or {}).get("outcome")
+                                        == "control_invalid" for r in rows),
     }
 
 
@@ -326,6 +341,11 @@ def load_corpus(corpus_root, only_technique=None):
     return cases
 
 
+def corpus_paths(corpus_root, only_technique=None):
+    folders = [only_technique] if only_technique else list(TECHNIQUES)
+    return [(Path(corpus_root) / folder / "cases.json").resolve() for folder in folders]
+
+
 def run_level(level, cases, out, metadata, env, skip_ml=False):
     """Chạy một PL: dựng lab, thực thi corpus, đối chiếu evidence, ghi kết quả."""
     env["CRS_PL"] = str(level)
@@ -359,6 +379,16 @@ def run_level(level, cases, out, metadata, env, skip_ml=False):
             "import json; print(json.load(open('/app/artifacts/metrics.json'))"
             ".get('model_version'))"], env).strip()
         metadata["runtime"][str(level)]["ml_model_version_container"] = ml_model_version_container
+        hash_script = (
+            "import hashlib,json,pathlib; "
+            "paths=map(pathlib.Path,['/app/artifacts/model.joblib',"
+            "'/app/artifacts/metrics.json']); "
+            "print(json.dumps({p.name:hashlib.sha256(p.read_bytes()).hexdigest() "
+            "for p in paths}))"
+        )
+        artifact_hashes = json.loads(command(
+            COMPOSE + ["exec", "-T", "waf-ml", "python", "-c", hash_script], env))
+        metadata["runtime"][str(level)]["ml_artifact_sha256"] = artifact_hashes
     (out / "metadata.json").write_text(json.dumps(metadata, indent=2,
                                                   ensure_ascii=False), encoding="utf-8")
 
@@ -437,6 +467,43 @@ def run_level(level, cases, out, metadata, env, skip_ml=False):
         ml_app_record = app_map.get(ml_cid) if not skip_ml else None
         hybrid_record = ml_map.get(cid) if metadata["crs_backend"] == "ml" else None
         row["hybrid_ml_evidence"] = hybrid_record
+        if not skip_ml:
+            ml_result = {
+                "decision": None, "outcome": "unclassified", "true_bypass": None,
+                "http_status": row["ml_http_status"], "latency_ms": row["ml_latency_ms"],
+                "app_evidence": ml_app_record,
+            }
+            if ml_record:
+                ml_result.update({key: ml_record.get(key) for key in
+                                  ("label", "score", "threshold", "model_version", "error")})
+            ml_blocked = (row["ml_http_status"] == 403 and ml_record
+                          and ml_record.get("decision") == "blocked"
+                          and ml_app_record is None)
+            ml_allowed = (row["ml_http_status"] == 200 and ml_record
+                          and ml_record.get("decision") == "allowed"
+                          and ml_app_record is not None)
+            ml_effect = bool(ml_app_record and ml_app_record.get("semantic_effect"))
+            if not valid_control:
+                ml_result["outcome"] = "control_invalid"
+            elif row["ml_error"] or row["ml_http_status"] is None:
+                ml_result["outcome"] = "transport_error"
+            elif not ml_record:
+                ml_result["outcome"] = "missing_evidence"
+            elif ml_blocked:
+                ml_result.update(decision="blocked", outcome=(
+                    "blocked" if intended else "benign_blocked"), true_bypass=False)
+            elif ml_allowed:
+                if intended and ml_effect:
+                    ml_outcome, ml_true_bypass = "true_bypass", True
+                elif intended and not ml_effect:
+                    ml_outcome, ml_true_bypass = "pass_without_effect", False
+                else:
+                    ml_outcome, ml_true_bypass = "allowed", False
+                ml_result.update(decision="allowed", outcome=ml_outcome,
+                                 true_bypass=ml_true_bypass,
+                                 semantic_effect=ml_effect)
+            row["ml"] = ml_record or {}
+            row["ml_enforcement"] = ml_result
         rule_ids = []
         row["detected"] = False
         if row["waf_error"] or row["http_status"] is None:
@@ -489,41 +556,6 @@ def run_level(level, cases, out, metadata, env, skip_ml=False):
             row.setdefault("passed", True)
         else:
             row["outcome"], row["true_bypass"] = "unclassified", None
-        if not skip_ml:
-            ml_result = {
-                "decision": None, "outcome": "unclassified", "true_bypass": None,
-                "http_status": row["ml_http_status"], "latency_ms": row["ml_latency_ms"],
-                "app_evidence": ml_app_record,
-            }
-            if ml_record:
-                ml_result.update({key: ml_record.get(key) for key in
-                                  ("label", "score", "threshold", "model_version", "error")})
-            ml_blocked = (row["ml_http_status"] == 403 and ml_record
-                          and ml_record.get("decision") == "blocked"
-                          and ml_app_record is None)
-            ml_allowed = (row["ml_http_status"] == 200 and ml_record
-                          and ml_record.get("decision") == "allowed"
-                          and ml_app_record is not None)
-            ml_effect = bool(ml_app_record and ml_app_record.get("semantic_effect"))
-            if row["ml_error"] or row["ml_http_status"] is None:
-                ml_result["outcome"] = "transport_error"
-            elif not ml_record:
-                ml_result["outcome"] = "missing_evidence"
-            elif ml_blocked:
-                ml_result.update(decision="blocked", outcome=(
-                    "blocked" if intended else "benign_blocked"), true_bypass=False)
-            elif ml_allowed:
-                if intended and ml_effect:
-                    ml_outcome, ml_true_bypass = "true_bypass", True
-                elif intended and not ml_effect:
-                    ml_outcome, ml_true_bypass = "pass_without_effect", False
-                else:
-                    ml_outcome, ml_true_bypass = "allowed", False
-                ml_result.update(decision="allowed", outcome=ml_outcome,
-                                 true_bypass=ml_true_bypass,
-                                 semantic_effect=ml_effect)
-            row["ml"] = ml_record or {}
-            row["ml_enforcement"] = ml_result
     (out / f"pl{level}-audit.json").write_text(json.dumps(audits, indent=2),
                                                encoding="utf-8")
     (out / f"pl{level}-app.json").write_text(json.dumps(apps, indent=2,
@@ -549,8 +581,7 @@ def main():
 
     corpus_root = Path(args.corpus)
     cases = load_corpus(corpus_root, args.technique)
-    corpus_files = [str(ROOT / "dataset/bypass" / f / "cases.json") for f in
-                    ([args.technique] if args.technique else list(TECHNIQUES))]
+    corpus_files = [str(path) for path in corpus_paths(corpus_root, args.technique)]
 
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     out = ROOT / "results/raw/experiments" / run_id
@@ -581,7 +612,10 @@ def main():
         "source_sha256": {
             path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
             for path in ("docker-compose.yml", "web-app/app.py",
-                         "scripts/run_experiment.py",
+                         "scripts/run_experiment.py", "scripts/sweep_thresholds.py",
+                         "docker/waf-ml/Dockerfile", "waf-ml/requirements.txt",
+                         "waf-ml/app.py", "waf-ml/server.py", "waf-ml/train.py",
+                         "waf-ml/build_dataset.py",
                          "dataset/bypass/README.md")},
     }
     metadata["images"] = command(COMPOSE + ["images", "--format", "json"], env)
