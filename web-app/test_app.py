@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from app import app
+from app import app, _db_config
 
 
 class EvidenceTests(unittest.TestCase):
@@ -73,6 +73,24 @@ class EvidenceTests(unittest.TestCase):
         self.assertFalse(record["semantic_effect"])
         self.assertIsNotNone(record["sql_error"])
         self.assertEqual(health.status_code, 503)
+
+
+class DatabaseConfigurationTests(unittest.TestCase):
+    def test_literal_passwords_are_not_parsed_as_a_url(self):
+        for password in ("lab#only", "lab/only", "lab%23only", "lab only", "lab$only"):
+            with self.subTest(password=password), patch.dict(os.environ, {
+                "DB_HOST": "db", "DB_PORT": "3306", "DB_USER": "root",
+                "DB_PASSWORD": password, "DB_NAME": "waf_lab",
+                "DATABASE_URL": "mysql://invalid:bad#uri@elsewhere:3306/wrong",
+            }, clear=True):
+                config = _db_config()
+                self.assertEqual(config["password"], password)
+                self.assertEqual(config["host"], "db")
+                self.assertEqual(config["database"], "waf_lab")
+
+    def test_legacy_percent_encoded_url_is_still_supported(self):
+        with patch.dict(os.environ, {"DATABASE_URL": "mysql://root:lab%23only@db:3306/waf_lab"}, clear=True):
+            self.assertEqual(_db_config()["password"], "lab#only")
 
 
 if __name__ == "__main__":

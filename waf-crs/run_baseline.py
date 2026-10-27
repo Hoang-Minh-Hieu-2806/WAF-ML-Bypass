@@ -125,7 +125,8 @@ def main():
                 "docker": command(["docker", "version"]),
                 "compose": command(["docker", "compose", "version"])}
     for filename in ("docker/waf-crs/Dockerfile", "docker/waf-crs/Dockerfile.backend",
-                     "docker/waf-crs/compose.yml", "waf-crs/test_backend.py", "waf-crs/run_baseline.py"):
+                     "docker/waf-crs/compose.yml", "docker/waf-crs/init-audit.sh",
+                     "waf-crs/test_backend.py", "waf-crs/run_baseline.py"):
         metadata.setdefault("source_sha256", {})[filename] = hashlib.sha256((ROOT / filename).read_bytes()).hexdigest()
     (out / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     command(COMPOSE + ["build"], env)

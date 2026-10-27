@@ -73,7 +73,17 @@ def record_evidence(response):
 
 
 def _db_config():
-    """Parse DATABASE_URL=mysql://root:PASS@db:3306/waf_lab."""
+    """Use literal DB settings; retain a percent-encoded URI as legacy fallback."""
+    if "DB_PASSWORD" in os.environ:
+        return {
+            "host": os.getenv("DB_HOST", "db"),
+            "port": int(os.getenv("DB_PORT", "3306")),
+            "user": os.getenv("DB_USER", "root"),
+            "password": os.environ["DB_PASSWORD"],
+            "database": os.getenv("DB_NAME", "waf_lab"),
+            "connect_timeout": 5,
+            "cursorclass": pymysql.cursors.DictCursor,
+        }
     url = os.getenv("DATABASE_URL", "mysql://root:changeme_strong_pass@db:3306/waf_lab")
     u = urlparse(url)
     return {

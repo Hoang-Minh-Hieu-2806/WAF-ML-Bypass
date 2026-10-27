@@ -48,3 +48,15 @@ Nó có log `logs/*/crs/` và output `results/raw/crs/`, độc lập với lab 
 
 Lab MySQL dùng corpus smoke riêng gồm 3 benign + 3 SQLi; output nằm trong
 `results/raw/crs-integrated/`. Không gộp hai corpus/backend vào cùng bảng metric.
+
+## Sửa lỗi P2
+
+Compose có init container ngắn hạn, không mạng, root filesystem read-only; nó
+chỉ chown/chmod thư mục audit bind mount và file audit.log cho nginx UID 101.
+File được mở bằng touch, không truncate. Healthcheck WAF phải tạo được audit
+và thấy file có quyền ghi trước khi đánh dấu healthy. Không dùng chmod 777.
+
+Web-app nhận DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME riêng từ Compose.
+DATABASE_URL chỉ là fallback cho cách chạy cũ và cần percent-encode URI.
+Runner tích hợp lưu status running/failed/complete, checkpoint partial và chỉ
+công bố CSV/JSON cuối khi toàn bộ PL yêu cầu đã hoàn tất.
