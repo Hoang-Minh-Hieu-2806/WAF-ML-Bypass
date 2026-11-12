@@ -38,3 +38,49 @@ content-type confusion) chỉ tạo được khác nhau ở phía WAF vs app —
 - Corpus chỉ gắn với các endpoints lab; KHÔNG dùng để tấn công bên ngoài.
 - Ethical: payload chỉ ví dụ, không dùng đánh đổi tài khoản thật trong
   seed (`docker/db/init/02-seed.sql`).
+
+## XSS corpus v2 (10 cases)
+
+XSS fixtures extend the existing four technique files; the 26 SQLi fixtures
+remain in their original v1 format. The combined corpus has 36 cases: 4 benign
+and 6 malicious XSS cases use the v2 envelope (`request`, `vuln`, `family`,
+`expected_waf_outcome`, and `expected_app_effect`).
+
+Validate the complete corpus from the repository root:
+
+```powershell
+python dataset/bypass/validate_corpus.py
+```
+
+The validator uses only Python's standard library. It checks JSON syntax,
+global ID uniqueness, technique-to-directory consistency, both schema versions,
+ordered parameter/form pairs, endpoint and enum constraints, the independent
+WAF/app expectation fields, and the required 26 v1 + 10 v2 / 4 benign + 6
+malicious counts.
+
+| Family | Payload mechanism | Cases |
+|---|---|---:|
+| `xss.tag` | Script/tag injection, including duplicate-parameter and body parsing cases | 3 |
+| `xss.event` | Event-handler injection | 1 |
+| `xss.encoding` | Percent-encoded and multiply encoded input | 2 |
+| `xss.case-comment` | Case and comment mutation | 1 |
+| `benign.html` | Harmless HTML and formatting text | 1 |
+| `benign.lt` | Benign less-than/greater-than text | 2 |
+
+The `technique` field describes wire construction (`hpp`, `double-encoding`,
+`case-comment`, or `parsing-discrepancy`); `family` describes the payload
+mechanism used for grouping and generalization. The two labels answer different
+questions and should not be collapsed.
+
+`expected_waf_outcome` records a test hypothesis about the WAF. It does not
+describe application behavior. `expected_app_effect` describes the direct
+`/comment` application control: `executed`, `not_executed`, or `none`; benign
+cases always use `none`. A blocked WAF expectation may coexist with a direct
+app effect of `executed`. Only observed browser verification can establish
+JavaScript execution; corpus labels and HTTP reflection alone do not establish
+a WAF bypass. Cases with a `control` also specify `/comment-escaped` and the
+properties that the escaped control must not reflect or execute.
+
+The XSS sink is intentionally vulnerable and exists only in the group's local
+Docker lab. Use these cases only against the lab services owned by the group;
+do not send them to public or third-party systems.
