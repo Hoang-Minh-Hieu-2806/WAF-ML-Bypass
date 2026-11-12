@@ -19,6 +19,7 @@ def _load_module(filename, name):
 
 runner = _load_module("run_experiment.py", "run_experiment")
 sweep = _load_module("sweep_thresholds.py", "sweep_thresholds")
+compare = _load_module("compare_a6_baseline.py", "compare_a6_baseline")
 
 
 class SummaryTests(unittest.TestCase):
@@ -127,6 +128,36 @@ class XssMetricTests(unittest.TestCase):
         self.assertEqual(result["attack_score"], 0.52)
         self.assertEqual(result["scores"]["sqli"] + result["scores"]["xss"], 0.52)
         self.assertEqual(result["threshold"], 0.5)
+
+
+class CompareA6Tests(unittest.TestCase):
+    def test_hybrid_flip_from_ml_polarity_is_explained(self):
+        baseline = [{"case_id": "hpp-mal-001", "paranoia_level": 1, "vuln": "sqli",
+                     "label": "malicious", "outcome": "blocked",
+                     "blocking_layer": "ml", "ml_enforcement": {"score": 0.6}}]
+        candidate = [{"case_id": "hpp-mal-001", "paranoia_level": 1, "vuln": "sqli",
+                      "label": "malicious", "outcome": "allowed",
+                      "blocking_layer": None,
+                      "hybrid_ml_evidence": {"attack_score": 0.4, "scores":
+                          {"benign": 0.6, "sqli": 0.3, "xss": 0.1}}}]
+        result = compare.compare(baseline, candidate)
+        self.assertEqual(result["same_outcome"], 0)
+        flip = result["flips"][0]
+        self.assertTrue(flip["threshold_policy_explains_flip"])
+
+    def test_direct_flip_without_polarity_change_is_unexplained(self):
+        baseline = [{"case_id": "cc-mal-001", "paranoia_level": 2, "vuln": "sqli",
+                     "label": "malicious", "outcome": "allowed", "ml_enforcement": {"score": 0.9}}]
+        candidate = [{"case_id": "cc-mal-001", "paranoia_level": 2, "vuln": "sqli",
+                      "label": "malicious", "outcome": "blocked", "blocking_layer": "crs",
+                      "ml_enforcement": {"attack_score": 0.9}}]
+        result = compare.compare(baseline, candidate)
+        flip = result["flips"][0]
+        self.assertFalse(flip["threshold_policy_explains_flip"])
+
+    def test_attack_score_derives_from_scores_map(self):
+        row = {"hybrid_ml_evidence": {"scores": {"benign": 0.5, "sqli": 0.3, "xss": 0.2}}}
+        self.assertEqual(compare.ml_attack_score(row), 0.5)
 
 
 class SweepTests(unittest.TestCase):
