@@ -1,32 +1,34 @@
-# CRS benign-block hotlist — RUN-A (2026-11-12)
+# CRS benign-block hotlist - RUN-A (2026-11-12)
 
 ## Scope
 
-- Primary source: RUN-A `20261112T151032Z-6eea4579`, CRS-only outcome, 36-case corpus, PL1–PL3.
+- Primary source: RUN-A `20261112T163850Z-de5655c2`, CRS-only outcome, 36-case corpus, PL1-PL3.
+- Corpus commit: `ea00b96` (`fix(dataset): align chunked form content types`).
 - Counts are benign case-rounds blocked out of 15 benign cases at each PL.
-- Rule frequencies below count matching root rules across blocked benign case-rounds. A case can match multiple rules, so frequencies do not sum to the number of blocked cases.
-- Rule `949110` is the anomaly scoring/block gate. It accompanies blocked transactions but is not counted as the root match that caused the benign false positive.
-- The raw experiment and audit files are local under ignored `results/raw/experiments/`.
+- Rule frequencies count matches across blocked benign transactions; a transaction can match multiple rules.
+- Rule `949110` is the anomaly scoring/block gate and is not counted as a root match.
+- Raw evidence is local in ignored `results/raw/experiments/20261112T163850Z-de5655c2/`.
 
 ## Observed benign blocks and root-rule frequency
 
 | PL | Benign blocked | Benign FPR | Root rule ID frequencies |
 |---:|---:|---:|---|
-| 1 | 1/15 | 6.67% | `920640`: 1 |
-| 2 | 5/15 | 33.33% | `942131`: 4; `920230`: 1; `920640`: 1; `932200`: 1; `941320`: 1 |
-| 3 | 12/15 | 80.00% | `920272`: 7; `921180`: 4; `942131`: 4; `920230`: 3; `932350`: 2; `920640`: 1; `932200`: 1; `941320`: 1; `942431`: 1; `942460`: 1 |
+| 1 | 0/15 | 0.00% | none |
+| 2 | 4/15 | 26.67% | `942131`: 4; `920230`: 1; `932200`: 1; `941320`: 1 |
+| 3 | 11/15 | 73.33% | `920272`: 7; `921180`: 4; `942131`: 4; `920230`: 3; `932350`: 2; `932200`: 1; `941320`: 1; `942431`: 1; `942460`: 1 |
 
 ## Representative rows to inspect
 
 | Case | PL | Benign family / technique | Root rule IDs |
 |---|---:|---|---|
-| `pd-ben-003` | 1–3 | `benign.html` / parsing-discrepancy | `920640` |
-| `xss-hpp-ben-001` | 2–3 | `benign.lt` / HPP | `942131` at PL2; `920272`, `921180`, `942131` at PL3 |
-| `xss-de-ben-001` | 2–3 | `xss.encoding` / double-encoding | `920230`, `942131` at PL2; `920230`, `920272`, `942131` at PL3 |
-| `xss-pd-ben-001` | 2–3 | `benign.html` / parsing-discrepancy | `932200`, `941320`, `942131` at PL2; plus `920272`, `942431`, `942460` at PL3 |
+| `xss-hpp-ben-001` | 2-3 | `benign.lt` / HPP | `942131` at PL2; `920272`, `921180`, `942131` at PL3 |
+| `xss-de-ben-001` | 2-3 | `xss.encoding` / double encoding | `920230`, `942131` at PL2; `920230`, `920272`, `942131` at PL3 |
+| `xss-pd-ben-001` | 2-3 | `benign.html` / parsing discrepancy | `932200`, `941320`, `942131` at PL2; plus `920272`, `942431`, `942460` at PL3 |
+| `xss-pd-ben-002` | 2-3 | `benign.lt` / parsing discrepancy | `942131` at PL2-3 |
 | `hpp-ben-001` | 3 | `benign.html` / HPP | `921180`, `932350` |
+| `pd-ben-003` | 1-3 | benign form login / chunked transfer | allowed, HTTP 200, no CRS root rule after adding the form Content-Type |
 
-Audit messages show distinct benign matches: `942131` matched comparison text such as `a < b`; `941320` matched a harmless `<sup>` tag; `932200` matched markdown punctuation; and protocol rules matched duplicate parameter names or request parsing. These are candidate false-positive mechanisms, not yet approved CRS exceptions.
+The previous RUN-A had `920640` matches on `pd-ben-003` and `pd-mal-001` because both chunked form requests omitted Content-Type. Both fixtures now explicitly send `application/x-www-form-urlencoded`. In the refreshed run, `pd-ben-003` is allowed and `pd-mal-001` is blocked by SQLi rules, including `942100` at PL1. This isolates the intended chunked-transfer behavior from the missing-header protocol rule.
 
 ## Hardening decision criteria
 
