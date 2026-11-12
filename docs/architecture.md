@@ -61,3 +61,15 @@ scoring. Threshold mặc định 0.5 (`ML_THRESHOLD`), backend nội bộ là
 true bypass, FPR, latency riêng cho ML; không suy block từ nhãn `/score` nữa.
 Đặt `CRS_BACKEND=http://waf-ml:5001` để chạy chuỗi hybrid
 `CRS -> ML -> web-app`; mặc định vẫn là CRS-only để giữ baseline cũ.
+
+## Sửa lỗi P2
+
+Compose có init container ngắn hạn, không mạng, root filesystem read-only; nó
+chỉ chown/chmod thư mục audit bind mount và file audit.log cho nginx UID 101.
+File được mở bằng touch, không truncate. Healthcheck WAF phải tạo được audit
+và thấy file có quyền ghi trước khi đánh dấu healthy. Không dùng chmod 777.
+
+Web-app nhận DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME riêng từ Compose.
+DATABASE_URL chỉ là fallback cho cách chạy cũ và cần percent-encode URI.
+Runner tích hợp lưu status running/failed/complete, checkpoint partial và chỉ
+công bố CSV/JSON cuối khi toàn bộ PL yêu cầu đã hoàn tất.

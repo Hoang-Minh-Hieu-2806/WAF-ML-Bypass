@@ -1,5 +1,15 @@
 name: waf-crs-lab
 services:
+  crs-audit-init:
+    image: owasp/modsecurity-crs@sha256:133267aa811e1a57a23b52ef04b3c30e802bcbe5454588f6d6af1f69f4b2b667
+    user: "0:0"
+    entrypoint: ["/bin/sh", "/init-audit.sh"]
+    network_mode: none
+    read_only: true
+    volumes:
+      - ../../logs/waf/crs:/evidence
+      - ./init-audit.sh:/init-audit.sh:ro
+
   crs-test-backend:
     build:
       context: ../..
@@ -43,8 +53,10 @@ services:
     depends_on:
       crs-test-backend:
         condition: service_healthy
+      crs-audit-init:
+        condition: service_completed_successfully
     healthcheck:
-      test: [CMD, curl, --fail, --silent, http://127.0.0.1:8080/healthz]
+      test: [CMD-SHELL, "curl --fail --silent http://127.0.0.1:8080/healthz && test -w /var/log/crs-lab/audit.log && test -s /var/log/crs-lab/audit.log"]
       interval: 2s
       timeout: 3s
       retries: 30

@@ -14,6 +14,16 @@
 # =============================================================================
 
 services:
+  crs-audit-init:
+    image: owasp/modsecurity-crs@sha256:133267aa811e1a57a23b52ef04b3c30e802bcbe5454588f6d6af1f69f4b2b667
+    user: "0:0"
+    entrypoint: ["/bin/sh", "/init-audit.sh"]
+    network_mode: none
+    read_only: true
+    volumes:
+      - ./logs/waf/integrated:/evidence
+      - ./docker/waf-crs/init-audit.sh:/init-audit.sh:ro
+
   db:
     image: mysql:8.4
     container_name: waf-db
@@ -28,7 +38,7 @@ services:
       - webnet
     # Không expose 3306 ra host — chỉ nội bộ webnet.
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$$MYSQL_ROOT_PASSWORD\""]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -41,7 +51,11 @@ services:
     container_name: waf-app
     env_file: .env
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASS}
+      DB_NAME: ${MYSQL_DATABASE:-waf_lab}
       PORT: "5000"
       APP_LOG: /evidence/app.jsonl
     volumes:
@@ -91,12 +105,14 @@ services:
     depends_on:
       web-app:
         condition: service_healthy
+      crs-audit-init:
+        condition: service_completed_successfully
     networks:
       - webnet
     healthcheck:
       # Kiểm tra DB qua backend; endpoint không mang input SQL để không nhiễu PL3.
       # NOTE: image owasp/modsecurity-crs:nginx listen 8080 (không phải 80).
-      test: ["CMD-SHELL", "curl -fsS 'http://localhost:8080/healthz' -H 'Host: localhost' || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS 'http://localhost:8080/healthz' -H 'Host: localhost' && test -w /var/log/crs-integrated/audit.log && test -s /var/log/crs-integrated/audit.log"]
       interval: 15s
       timeout: 5s
       retries: 5
