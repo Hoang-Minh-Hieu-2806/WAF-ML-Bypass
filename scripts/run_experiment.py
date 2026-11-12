@@ -532,21 +532,22 @@ def run_level(level, cases, out, metadata, env, skip_ml=False):
         "ml_health": ml_health, "anomaly_inbound": 5,
     }
     if not skip_ml:
-        ml_model_version_container = command(COMPOSE + ["exec", "-T", "waf-ml",
-                                                        "python", "-c",
-            "import json; print(json.load(open('/app/artifacts/metrics.json'))"
-            ".get('model_version'))"], env).strip()
-        metadata["runtime"][str(level)]["ml_model_version_container"] = ml_model_version_container
-        hash_script = (
-            "import hashlib,json,pathlib; "
-            "paths=map(pathlib.Path,['/app/artifacts/model.joblib',"
-            "'/app/artifacts/metrics.json']); "
-            "print(json.dumps({p.name:hashlib.sha256(p.read_bytes()).hexdigest() "
-            "for p in paths}))"
+        artifact_script = (
+            "import hashlib,json,os,pathlib; "
+            "root=pathlib.Path(os.getenv('ML_MODEL_DIR','/app/artifacts')); "
+            "has=lambda d:(d/'model.joblib').exists() and (d/'metrics.json').exists(); "
+            "d=root if has(root) else root/'v1.1' if has(root/'v1.1') else None; "
+            "assert d is not None, 'no ML artifacts in container'; "
+            "print(json.dumps({'model_dir': str(d), "
+            "'model_version': json.load(open(d/'metrics.json')).get('model_version'), "
+            "'sha256': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() "
+            "for p in d.iterdir() if p.is_file()}}))"
         )
-        artifact_hashes = json.loads(command(
-            COMPOSE + ["exec", "-T", "waf-ml", "python", "-c", hash_script], env))
-        metadata["runtime"][str(level)]["ml_artifact_sha256"] = artifact_hashes
+        artifact_info = json.loads(command(
+            COMPOSE + ["exec", "-T", "waf-ml", "python", "-c", artifact_script], env))
+        metadata["runtime"][str(level)]["ml_model_dir_container"] = artifact_info["model_dir"]
+        metadata["runtime"][str(level)]["ml_model_version_container"] = artifact_info["model_version"]
+        metadata["runtime"][str(level)]["ml_artifact_sha256"] = artifact_info["sha256"]
     (out / "metadata.json").write_text(json.dumps(metadata, indent=2,
                                                   ensure_ascii=False), encoding="utf-8")
 
