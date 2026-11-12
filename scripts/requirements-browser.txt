@@ -1,0 +1,2 @@
+# Browser oracle for controlled local XSS verification (X3 / R6 / R7).
+playwright==1.65.1
