@@ -290,10 +290,19 @@ def train_and_save(out_dir=None, corpus_root=None, baseline_dir=None):
 def ensure_model():
     selected_dir = os.getenv("ML_MODEL_DIR")
     directory = Path(selected_dir) if selected_dir else Path("artifacts/v1.1")
-    metrics_path = directory / "metrics.json"
-    model_path = directory / "model.joblib"
-    if model_path.exists() and metrics_path.exists():
-        return json.loads(metrics_path.read_text(encoding="utf-8")).get("model_version", MODEL_VERSION)
+
+    def has_artifacts(target):
+        return (target / "model.joblib").exists() and (target / "metrics.json").exists()
+
+    if has_artifacts(directory):
+        os.environ["ML_MODEL_DIR"] = str(directory)
+        return json.loads((directory / "metrics.json").read_text(
+            encoding="utf-8")).get("model_version", MODEL_VERSION)
+    if directory.name == "artifacts" and has_artifacts(directory / "v1.1"):
+        directory = directory / "v1.1"
+        os.environ["ML_MODEL_DIR"] = str(directory)
+        return json.loads((directory / "metrics.json").read_text(
+            encoding="utf-8")).get("model_version", MODEL_VERSION)
     if selected_dir and directory.name != "artifacts":
         raise FileNotFoundError(
             f"ML_MODEL_DIR points to missing artifact directory: {directory}; refusing to train over selection")

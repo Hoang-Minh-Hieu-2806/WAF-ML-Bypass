@@ -14,7 +14,9 @@ RUN mkdir -p /app/artifacts
 COPY waf-ml/artifacts/ /app/artifacts/
 # Tuần 05-06: train.py/build_dataset.py/server.py đi vào image;
 # server.py train trong container nếu artifacts trống (sklearn pin sẵn).
-COPY waf-ml/app.py waf-ml/build_dataset.py waf-ml/train.py waf-ml/server.py waf-ml/test_app.py ./
+# Dataset v2 cần corpus (26 SQLi + 10 XSS) — COPY vào vị trí default_corpus_root.
+COPY waf-ml/app.py waf-ml/build_dataset.py waf-ml/train.py waf-ml/server.py waf-ml/test_app.py waf-ml/test_train.py ./
+COPY dataset/bypass /dataset/bypass
 ENV ML_MODEL_DIR=/app/artifacts
 
 EXPOSE 5001
