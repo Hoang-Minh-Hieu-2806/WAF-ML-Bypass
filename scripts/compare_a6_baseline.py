@@ -18,6 +18,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE_SOURCES = ("ml_enforcement", "hybrid_ml_evidence", "ml")
 THRESHOLD = 0.5
+EXPECTED_SQLI_CASES = 26
+EXPECTED_PARANOIA_LEVELS = (1, 2, 3)
 
 
 def load_rows(directory):
@@ -33,10 +35,15 @@ def load_rows(directory):
     return rows, metadata
 
 
-def is_sqli_malicious(row):
-    if row.get("label") != "malicious":
-        return False
-    return row.get("vuln", "sqli") == "sqli"
+def is_sqli_case(row):
+    """Include SQLi benign controls as well as malicious cases.
+
+    Older v1.0 baselines contain only SQLi fixtures and have no ``vuln``
+    field, so a missing field means SQLi. Newer mixed corpora label each row.
+    """
+    return row.get("vuln", "sqli") == "sqli" and row.get("label") in {
+        "benign", "malicious"
+    }
 
 
 def evidence(row):
@@ -71,7 +78,32 @@ def outcome_key(row):
 
 
 def collect_sqli_map(rows):
-    return {outcome_key(row): row for row in rows if is_sqli_malicious(row)}
+    result = {}
+    for row in rows:
+        if not is_sqli_case(row):
+            continue
+        key = outcome_key(row)
+        if key in result:
+            raise ValueError(f"duplicate SQLi case-round: {key}")
+        result[key] = row
+    return result
+
+
+def coverage_errors(rows, name, expected_cases=EXPECTED_SQLI_CASES,
+                    expected_levels=EXPECTED_PARANOIA_LEVELS):
+    case_map = collect_sqli_map(rows)
+    case_ids = {key[0] for key in case_map}
+    issues = []
+    if len(case_ids) != expected_cases:
+        issues.append(f"{name} has {len(case_ids)} SQLi case IDs; expected {expected_cases}")
+    expected_levels = set(expected_levels)
+    for case_id in sorted(case_ids):
+        observed_levels = {key[1] for key in case_map if key[0] == case_id}
+        if observed_levels != expected_levels:
+            issues.append(
+                f"{name} {case_id} has PL{','.join(map(str, sorted(observed_levels)))}; "
+                f"expected PL{','.join(map(str, sorted(expected_levels)))}")
+    return issues
 
 
 def compare(baseline_rows, candidate_rows):
@@ -81,9 +113,14 @@ def compare(baseline_rows, candidate_rows):
                     key=lambda key: (key[0], key[1]))
     only_baseline = sorted(set(base_map) - set(cand_map))
     only_candidate = sorted(set(cand_map) - set(base_map))
-    same, flips = 0, []
+    same, flips, label_mismatches = 0, [], []
     for key in shared:
         base, cand = base_map[key], cand_map[key]
+        if base.get("label") != cand.get("label"):
+            label_mismatches.append({"case_id": key[0],
+                                    "paranoia_level": key[1],
+                                    "baseline_label": base.get("label"),
+                                    "candidate_label": cand.get("label")})
         if base["outcome"] == cand["outcome"]:
             same += 1
             continue
@@ -101,7 +138,14 @@ def compare(baseline_rows, candidate_rows):
                       "candidate_blocking_layer": cand.get("blocking_layer"),
                       "threshold_policy_explains_flip": explained})
     return {"shared": len(shared), "same_outcome": same, "flips": flips,
-            "only_in_baseline": only_baseline, "only_in_candidate": only_candidate}
+            "only_in_baseline": only_baseline, "only_in_candidate": only_candidate,
+            "baseline_cases": len({key[0] for key in base_map}),
+            "candidate_cases": len({key[0] for key in cand_map}),
+            "label_mismatches": label_mismatches,
+            "shared_labels": {
+                label: sum(base_map[key].get("label") == label for key in shared)
+                for label in ("benign", "malicious")
+            }}
 
 
 def flip_consistent_with_layer(base, cand):
@@ -124,16 +168,43 @@ def main():
                         help="v1.0 run directory (or results.json)")
     parser.add_argument("--candidate", required=True,
                         help="v1.1 run directory (or results.json)")
+    parser.add_argument("--expected-cases", type=int, default=EXPECTED_SQLI_CASES,
+                        help=f"required unique SQLi case IDs (default: {EXPECTED_SQLI_CASES})")
+    parser.add_argument("--levels", type=int, nargs="+",
+                        default=list(EXPECTED_PARANOIA_LEVELS),
+                        help="required paranoia levels per case (default: 1 2 3)")
     args = parser.parse_args()
     baseline_rows, baseline_meta = load_rows(args.baseline)
     candidate_rows, candidate_meta = load_rows(args.candidate)
     result = compare(baseline_rows, candidate_rows)
     print(f"A6 SQLi regression: baseline={Path(args.baseline).name} "
           f"candidate={Path(args.candidate).name}")
+    print(f"SQLi case IDs: baseline={result['baseline_cases']} "
+          f"candidate={result['candidate_cases']} | shared label-rounds: "
+          f"benign={result['shared_labels']['benign']} "
+          f"malicious={result['shared_labels']['malicious']}")
     print(f"shared case-rounds: {result['shared']} | same outcome: "
           f"{result['same_outcome']} | flips: {len(result['flips'])}")
-    if result["only_in_baseline"] or result["only_in_candidate"]:
-        print("WARNING unmatched keys — baseline/candidate cover different case sets")
+    coverage_issues = (
+        coverage_errors(baseline_rows, "baseline", args.expected_cases, args.levels)
+        + coverage_errors(candidate_rows, "candidate", args.expected_cases, args.levels)
+    )
+    if coverage_issues:
+        print("A6 FAIL: incomplete SQLi case/PL coverage")
+        for issue in coverage_issues:
+            print(f"  {issue}")
+    if result["label_mismatches"]:
+        print(f"A6 FAIL: {len(result['label_mismatches'])} SQLi label mismatch(es)")
+        for mismatch in result["label_mismatches"]:
+            print(f"  {mismatch['case_id']} PL{mismatch['paranoia_level']}: "
+                  f"{mismatch['baseline_label']} -> {mismatch['candidate_label']}")
+    unmatched = result["only_in_baseline"] or result["only_in_candidate"]
+    if unmatched:
+        print("A6 FAIL: baseline/candidate cover different SQLi case-rounds")
+        for key in result["only_in_baseline"]:
+            print(f"  missing in candidate: {key[0]} PL{key[1]}")
+        for key in result["only_in_candidate"]:
+            print(f"  missing in baseline: {key[0]} PL{key[1]}")
     for flip in result["flips"]:
         state = "EXPLAINED" if flip["threshold_policy_explains_flip"] else "UNEXPLAINED"
         print(f"  {flip['case_id']} PL{flip['paranoia_level']}: "
@@ -144,6 +215,8 @@ def main():
                    if not flip["threshold_policy_explains_flip"]]
     if unexplained:
         print(f"A6 FAIL: {len(unexplained)} unexplained flip(s)")
+        return 1
+    if unmatched or coverage_issues or result["label_mismatches"]:
         return 1
     print("A6 PASS: all outcome flips explained by threshold policy" if result["flips"]
           else "A6 PASS: no outcome flips")

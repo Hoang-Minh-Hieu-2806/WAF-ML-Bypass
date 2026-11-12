@@ -45,3 +45,16 @@
 - R13 sweep (RUN-A, 21 mal + 15 benign): **P1 F1 100% / FPR 0% tại threshold 0.40–0.70**
   (0.50 đang dùng = tối ưu); **P2 100/100/0 mọi threshold**.
 - **Kết luận: v1.1 `lr-tfidf-3cls-1.1` được thăng cấp candidate → model serving chính thức.**
+
+## Audit correction 2026-11-12 — A6 coverage and R11 wording
+
+The `45/45` counts in the addendum above counted only the 15 malicious SQLi cases at three paranoia levels. The earlier comparator omitted the 11 benign SQLi controls. After correcting the comparator to cover the complete 26-case SQLi corpus, including benign controls, the results are:
+
+| Comparison | SQLi case IDs | Benign label-rounds | Malicious label-rounds | Same outcomes | Flips |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| RUN-A vs `20261026T135349Z-47a09e39` | 26 | 33 | 45 | 78/78 | 0 |
+| RUN-B vs `20261026T100617Z-4e4a7f2d` | 26 | 33 | 45 | 78/78 | 0 |
+
+This correction supersedes the earlier `45/45` coverage figures. The full comparisons include all three PLs, and both runs have 26 matching case IDs. RUN-A's separate R4 CRS-only comparison against `20261026T100537Z-2af841ab` also matches 78/78 outcomes.
+
+The threshold result described above is R11, not R13. The reproduced RUN-A sweep gives the same 100% F1 and 0% FPR at each tested threshold from 0.40 through 0.70 for both P1 and P2. This evidence supports retaining 0.50 as the current policy, but does not show that it is uniquely optimal. See `results/tables/r11-threshold-sweep-20261112.md`.
