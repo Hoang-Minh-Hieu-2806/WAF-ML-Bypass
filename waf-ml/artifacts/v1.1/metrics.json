@@ -1,0 +1,312 @@
+{
+  "model_version": "lr-tfidf-3cls-1.1",
+  "sklearn_version": "1.7.1",
+  "generated_at": "2026-11-12T15:00:41.515941+00:00",
+  "dataset": {
+    "n_total": 426,
+    "class_counts": {
+      "benign": 223,
+      "sqli": 146,
+      "xss": 57
+    },
+    "family_count_per_class": {
+      "benign": 8,
+      "sqli": 11,
+      "xss": 4
+    },
+    "n_families": 22,
+    "source": "312-row v1 base + 26 SQLi / 10 XSS corpus seeds and deterministic XSS/benign HTML expansion"
+  },
+  "features": "TfidfVectorizer char_wb ngram_range=(1,2), sublinear_tf=True, min_df=1",
+  "model": "LogisticRegression C=2.0, max_iter=2000, multiclass",
+  "threshold": 0.5,
+  "enforcement_policy": "attack_score = P(sqli) + P(xss); block if attack_score >= threshold",
+  "validation": {
+    "valid": true,
+    "issues": [],
+    "folds": [
+      {
+        "fold": 1,
+        "train_size": 348,
+        "validation_size": 78,
+        "validation_classes": [
+          "benign",
+          "sqli",
+          "xss"
+        ],
+        "validation_distribution": {
+          "benign": 22,
+          "sqli": 49,
+          "xss": 7
+        },
+        "validation_families": [
+          "benign.notes",
+          "boolean",
+          "double-encoding",
+          "time",
+          "union",
+          "xss.encoding"
+        ],
+        "family_disjoint": true
+      },
+      {
+        "fold": 2,
+        "train_size": 230,
+        "validation_size": 196,
+        "validation_classes": [
+          "benign",
+          "sqli",
+          "xss"
+        ],
+        "validation_distribution": {
+          "benign": 124,
+          "sqli": 42,
+          "xss": 30
+        },
+        "validation_families": [
+          "benign.code",
+          "benign.html",
+          "benign.search",
+          "casing",
+          "tautology-n",
+          "xss.tag"
+        ],
+        "family_disjoint": true
+      },
+      {
+        "fold": 3,
+        "train_size": 374,
+        "validation_size": 52,
+        "validation_classes": [
+          "benign",
+          "sqli",
+          "xss"
+        ],
+        "validation_distribution": {
+          "benign": 17,
+          "sqli": 25,
+          "xss": 10
+        },
+        "validation_families": [
+          "benign.lt",
+          "stacked",
+          "tautology-s",
+          "xss.case-comment"
+        ],
+        "family_disjoint": true
+      },
+      {
+        "fold": 4,
+        "train_size": 326,
+        "validation_size": 100,
+        "validation_classes": [
+          "benign",
+          "sqli",
+          "xss"
+        ],
+        "validation_distribution": {
+          "benign": 60,
+          "sqli": 30,
+          "xss": 10
+        },
+        "validation_families": [
+          "benign.login",
+          "benign.misc",
+          "encoding",
+          "error",
+          "fragment",
+          "xss.event"
+        ],
+        "family_disjoint": true
+      }
+    ],
+    "n_splits": 4,
+    "family_count_per_class": {
+      "benign": 8,
+      "sqli": 11,
+      "xss": 4
+    },
+    "checks": {
+      "families_disjoint": true,
+      "all_three_classes_per_fold": true,
+      "family_counts_reported_per_class": true,
+      "at_least_two_families_per_class": true
+    },
+    "random_state": 29,
+    "attempts": [
+      {
+        "n_splits": 5,
+        "valid": false,
+        "random_state": 29,
+        "issues": [
+          "fold 1: validation classes=['benign', 'sqli']",
+          "fold 3: validation classes=['benign', 'sqli']",
+          "fold 4: validation classes=['sqli', 'xss']"
+        ]
+      },
+      {
+        "n_splits": 4,
+        "valid": true,
+        "random_state": 29,
+        "issues": []
+      }
+    ],
+    "fallback": "reduced_stratified_group_4",
+    "protocol": "StratifiedGroupKFold(4, group=family)"
+  },
+  "oof": {
+    "accuracy": 0.9342723004694836,
+    "macro_f1": 0.9289343591707427,
+    "per_class": {
+      "benign": {
+        "precision": 0.9045643153526971,
+        "recall": 0.9775784753363229,
+        "f1": 0.9396551724137931,
+        "support": 223
+      },
+      "sqli": {
+        "precision": 0.9635036496350365,
+        "recall": 0.9041095890410958,
+        "f1": 0.9328621908127208,
+        "support": 146
+      },
+      "xss": {
+        "precision": 1.0,
+        "recall": 0.8421052631578947,
+        "f1": 0.9142857142857143,
+        "support": 57
+      }
+    },
+    "confusion_labels": [
+      "benign",
+      "sqli",
+      "xss"
+    ],
+    "confusion_matrix": [
+      [
+        218,
+        5,
+        0
+      ],
+      [
+        14,
+        132,
+        0
+      ],
+      [
+        9,
+        0,
+        48
+      ]
+    ],
+    "fpr_benign_to_sqli": 0.02242152466367713,
+    "fpr_benign_to_xss": 0.0,
+    "binary_benign_vs_attack_attack_sum": {
+      "threshold": 0.5,
+      "f1": 0.9278350515463918,
+      "accuracy": 0.9342723004694836,
+      "attack_score_range": [
+        0.019171807627828337,
+        0.994018334439684
+      ],
+      "v1.0_reference_binary_f1": 0.9076,
+      "v1.0_reference_note": "reference only; not a paired comparison"
+    }
+  },
+  "sql_regression_v1_offline": {
+    "status": "offline_only_not_A6",
+    "corpus_sqli_count": 26,
+    "same_binary_polarity": 26,
+    "flips": [],
+    "all_flips_threshold_explained": true,
+    "note": "Not an end-to-end RUN-A/RUN-B, PL1-3 regression."
+  },
+  "fp_checks_html": {
+    "threshold": 0.5,
+    "passed": 30,
+    "total": 30,
+    "pass_rate": 1.0,
+    "by_family": {
+      "benign.html": {
+        "passed": 18,
+        "total": 18,
+        "pass_rate": 1.0
+      },
+      "benign.lt": {
+        "passed": 12,
+        "total": 12,
+        "pass_rate": 1.0
+      }
+    },
+    "failures": []
+  },
+  "acceptance": {
+    "A1_macro_f1": {
+      "pass": true
+    },
+    "A2_per_class_f1": {
+      "pass": true
+    },
+    "A3_fpr_benign_to_sqli": {
+      "pass": true
+    },
+    "A4_fpr_benign_to_xss": {
+      "pass": true
+    },
+    "A5_binary_attack_f1": {
+      "pass": true
+    },
+    "A6_sql_regression_end_to_end": {
+      "pass": false
+    },
+    "A7_fp_checks_html": {
+      "pass": true
+    }
+  },
+  "acceptance_details": {
+    "A1": {
+      "metric": "macro_f1",
+      "value": 0.9289343591707427,
+      "threshold": 0.8
+    },
+    "A2": {
+      "metric": "per_class_f1",
+      "values": {
+        "benign": 0.9396551724137931,
+        "sqli": 0.9328621908127208,
+        "xss": 0.9142857142857143
+      },
+      "thresholds": {
+        "benign": 0.85,
+        "sqli": 0.75,
+        "xss": 0.7
+      }
+    },
+    "A3": {
+      "metric": "fpr_benign_to_sqli",
+      "value": 0.02242152466367713,
+      "threshold": 0.05
+    },
+    "A4": {
+      "metric": "fpr_benign_to_xss",
+      "value": 0.0,
+      "threshold": 0.05
+    },
+    "A5": {
+      "metric": "binary_attack_f1",
+      "value": 0.9278350515463918,
+      "threshold": 0.85
+    },
+    "A6": {
+      "status": "not_assessed_end_to_end",
+      "reason": "offline 26-case polarity comparison is not RUN-A/RUN-B by configuration and PL"
+    },
+    "A7": {
+      "metric": "fp_checks_html_pass_rate",
+      "value": 1.0,
+      "threshold": 0.9
+    }
+  },
+  "acceptance_all_pass": false,
+  "deployment_recommendation": "candidate_only; do not promote unless A1-A7 all pass"
+}

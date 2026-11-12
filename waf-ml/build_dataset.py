@@ -7,6 +7,9 @@ Families mô phỏng đúng 4 nhóm kỹ thuật trong giáo trình C4:
 HPP/fragmentation, double-encoding, case/comment + tautology/union/stacked.
 """
 import html
+import json
+import os
+from pathlib import Path
 
 QUOTES = ["'", '"']
 
@@ -240,10 +243,88 @@ BENIGN_FAMILIES = {
 }
 
 
-def row_values():
-    """Trả về (text, label, family) không trùng lặp, thứ tự ổn định."""
+def default_corpus_root():
+    configured = os.getenv("ML_CORPUS_ROOT")
+    if configured:
+        return Path(configured)
+    return Path(__file__).resolve().parents[1] / "dataset" / "bypass"
+
+
+def _request_text(request):
+    values = []
+    for key, value in request.get("params", []) + request.get("form", []):
+        if key in {"text", "q", "id", "username", "password"}:
+            values.append(value)
+    return " ".join(values)
+
+
+def _sqli_family(case):
+    technique = case["technique"]
+    joined = _request_text(case).lower()
+    if technique == "double-encoding":
+        return "double-encoding"
+    if technique == "case-comment":
+        return "casing" if "select" in joined or "union" in joined else "fragment"
+    if technique == "hpp":
+        return "union" if "union" in joined else "tautology-n"
+    return "encoding" if "%" in joined else "fragment"
+
+
+def xss_variants(payload):
+    return [payload, "comment=" + payload, payload + "<!-- benign suffix -->",
+            payload.replace("<", "%3C").replace(">", "%3E"),
+            payload.replace("<", "%253C").replace(">", "%253E"),
+            payload.replace("script", "ScRiPt"), payload.replace(" ", "/**/"),
+            payload.replace("'", "&#39;"), "x " + payload,
+            "xss=" + payload, "<div>" + payload + "</div>"]
+
+
+def benign_html_checks():
+    return [
+        ("<sup>thứ 2</sup>", "benign.html"), ("<b>bold</b>", "benign.html"),
+        ("<code>SELECT</code>", "benign.html"), ("<i>ghi chú</i>", "benign.html"),
+        ("<u>underline</u>", "benign.html"), ("**bold text**", "benign.html"),
+        ("`inline code`", "benign.html"), ("```python\nprint(1)\n```", "benign.html"),
+        ('class="a"', "benign.html"), ('href=#', "benign.html"),
+        ('title="price < 10"', "benign.html"), ("data-id='42'", "benign.html"),
+        ("if a < b: return c", "benign.html"), ("a < b and c > d", "benign.html"),
+        ("màn hình < 15 inch", "benign.lt"), ("giá > 100.000đ", "benign.lt"),
+        ("điều kiện a < b < c", "benign.lt"), ("5 < 8, 9 > 4", "benign.lt"),
+        ("< tag không hoàn chỉnh", "benign.lt"), ("x > y trong ví dụ", "benign.lt"),
+        ("C++ beginner < guide", "benign.lt"), ("ghi chú: <script là tên tag", "benign.lt"),
+        ("markdown: [a](https://example.test)", "benign.html"),
+        ("JSON {\"html\":\"<b>\"}", "benign.html"),
+        ("snippet: if (x < 0) return;", "benign.lt"),
+        ("chữ tiếng Việt có dấu: đường dẫn < thư mục", "benign.lt"),
+        ("<sup>2</sup> + <sub>3</sub>", "benign.html"),
+        ("code: `a < b` trong tài liệu", "benign.lt"),
+        ("attribute text: onclick=show()", "benign.html"),
+        ("email <user@example.test>", "benign.lt"),
+    ]
+
+
+def benign_html_training():
+    tags = ["sup", "b", "code", "i", "u"]
+    rows = [(f"<{tag}>{word}</{tag}>", "benign.html")
+            for tag, word in zip(tags, ("2nd", "product label", "SKU-42", "note", "product text"))]
+    rows += [(f"{left} < {right}", "benign.lt") for left, right in
+             (("a", "b"), ("5", "8"), ("giá", "100"), ("màn hình", "14 inch"),
+              ("x", "y"), ("1.2", "2.4"), ("3", "4"), ("A", "B"))]
+    rows += [(f"{left} > {right}", "benign.lt") for left, right in
+             (("stock", "0"), ("giá", "50"), ("9", "4"), ("y", "x"),
+              ("đường kính", "10 mm"), ("100", "99"), ("c", "a"))]
+    rows += [(f"{tag}={value}", "benign.html") for tag, value in
+             (("class", '"product"'), ("href", "#top"), ("title", '"cost < 20"'),
+              ("data-id", "42"), ("aria-label", '"close"'), ("onclick", "toggle()"),
+              ("name", '"query"'))]
+    rows += [(f"markdown {snippet}", "benign.html") for snippet in
+             ("**bold**", "`code`", "[guide](docs)", "```text```", "_italic_")]
+    return rows
+
+
+def row_values(corpus_root=None):
     seen = set()
-    out = [(text, "malicious", fam)
+    out = [(text, "sqli", fam)
            for fam, gen in SQLI_FAMILIES.items()
            for text, variant in gen()
            if not (text in seen or seen.add(text))]
@@ -251,8 +332,32 @@ def row_values():
             for fam, gen in BENIGN_FAMILIES.items()
             for text, variant in gen()
             if not (text in seen or seen.add(text))]
+    corpus_root = Path(corpus_root) if corpus_root else default_corpus_root()
+    for path in sorted(corpus_root.glob("*/cases.json")):
+        for case in json.loads(path.read_text(encoding="utf-8")):
+            if "request" not in case:
+                text = _request_text(case)
+                label = "sqli" if case["label"] == "malicious" else "benign"
+                family = _sqli_family(case) if label == "sqli" else "benign.notes"
+                if text and text not in seen:
+                    seen.add(text)
+                    out.append((text, label, family))
+                continue
+            request = case["request"]
+            text = _request_text(request)
+            if case["label"] == "malicious":
+                for variant in xss_variants(text):
+                    if variant and variant not in seen:
+                        seen.add(variant)
+                        out.append((variant, "xss", case["family"]))
+            elif text and text not in seen:
+                seen.add(text)
+                out.append((text, "benign", case["family"]))
+    for text, family in benign_html_training():
+        if text not in seen:
+            seen.add(text)
+            out.append((text, "benign", family))
     return out
-
 
 def main():
     import argparse
@@ -261,11 +366,12 @@ def main():
 
     parser = argparse.ArgumentParser(description="Xuất dataset CSV (tuỳ chọn)")
     parser.add_argument("--out", default=None)
+    parser.add_argument("--corpus-root", default=None)
     args = parser.parse_args()
-    rows = list(row_values())
-    malicious = sum(1 for _, label, _ in rows if label == "malicious")
-    benign = len(rows) - malicious
-    families = len(SQLI_FAMILIES) + len(BENIGN_FAMILIES)
+    rows = list(row_values(args.corpus_root))
+    counts = {label: sum(1 for _, current, _ in rows if current == label)
+              for label in ("benign", "sqli", "xss")}
+    families = len({family for _, _, family in rows})
     if args.out:
         path = Path(args.out)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -273,7 +379,9 @@ def main():
             writer = csv.writer(stream)
             writer.writerow(["text", "label", "family"])
             writer.writerows(rows)
-    print(f"n={len(rows)} malicious={malicious} benign={benign} families={families}")
+    print(f"n={len(rows)} benign={counts['benign']} sqli={counts['sqli']} "
+          f"xss={counts['xss']} families={families}; "
+          f"benign_html_checks={len(benign_html_checks())}")
 
 
 if __name__ == "__main__":

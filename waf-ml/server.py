@@ -15,6 +15,11 @@ def main():
     from train import ensure_model
 
     version = ensure_model()
+    # ensure_model may select the new default artifacts/v1.1 when the image
+    # has no mounted artifact; app.py must load that exact directory.
+    selected = os.getenv("ML_MODEL_DIR")
+    if selected:
+        os.environ["ML_MODEL_DIR"] = selected
     os.environ["ML_MODEL_VERSION"] = version
     print(f"[waf-ml] model ready: {version}", flush=True)
     uvicorn.run("app:app", host="0.0.0.0", port=port, log_level="info")
