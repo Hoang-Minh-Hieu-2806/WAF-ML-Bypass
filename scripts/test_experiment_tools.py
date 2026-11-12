@@ -138,6 +138,36 @@ class SweepTests(unittest.TestCase):
         ]
         self.assertEqual(sweep.metrics(rows, 0.5)["f1_pct"], 50.0)
 
+    def test_attack_sum_sweep_uses_attack_score_and_reports_p2(self):
+        rows = [
+            {"label": "malicious",
+             "ml": {"scores": {"benign": 0.2, "sqli": 0.8, "xss": 0.0},
+                    "attack_score": 0.8}},
+            {"label": "malicious",
+             "ml": {"scores": {"benign": 0.7, "sqli": 0.1, "xss": 0.2},
+                    "attack_score": 0.3}},
+            {"label": "benign",
+             "ml": {"scores": {"benign": 0.9, "sqli": 0.05, "xss": 0.05},
+                    "attack_score": 0.1}},
+        ]
+        p1 = sweep.metrics(rows, 0.5)
+        self.assertEqual(p1["tp"], 1)
+        self.assertEqual(p1["fp"], 0)
+        self.assertEqual(p1["f1_pct"], 66.67)
+        p2 = sweep.p2_metrics(rows)
+        self.assertEqual(p2["tp"], 1)
+        self.assertEqual(p2["fp"], 0)
+        self.assertEqual(p2["fpr_pct"], 0.0)
+
+    def test_legacy_single_class_rows_have_no_p2_policy(self):
+        self.assertIsNone(sweep.p2_metrics([{"label": "benign", "ml": {"score": 0.9}}]))
+
+    def test_evidence_prefers_attack_score_over_legacy_score(self):
+        row = {"ml": {"score": 0.9, "attack_score": 0.3,
+                      "scores": {"benign": 0.7, "sqli": 0.3, "xss": 0.0}}}
+        self.assertEqual(sweep.attack_score(row), 0.3)
+        self.assertFalse(sweep.max_class_policy(row))
+
 
 if __name__ == "__main__":
     unittest.main()
