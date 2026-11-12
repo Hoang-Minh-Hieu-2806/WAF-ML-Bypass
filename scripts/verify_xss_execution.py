@@ -16,6 +16,7 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import run_experiment as runner  # noqa: E402
+from xss_oracle import execution_observed  # noqa: E402
 
 
 def base_url(config, env):
@@ -42,10 +43,9 @@ def marker_for(request):
     return match.group(2) if match else None
 
 
-def check_page(browser, url, expected_effect, request_body=None, request_headers=None,
+def check_page(browser, url, expected_title, request_body=None, request_headers=None,
                timeout_ms=1000):
     page = browser.new_page()
-    initial_title = page.title()
     dialogs = []
     page.on("dialog", lambda dialog: (dialogs.append(dialog.type), dialog.accept()))
     response = None
@@ -70,9 +70,7 @@ def check_page(browser, url, expected_effect, request_body=None, request_headers
             page.set_content(body, wait_until="load", timeout=15000)
         page.wait_for_timeout(timeout_ms)
         title = page.title()
-        marker = expected_effect
-        title_signal = title == marker if marker else title != initial_title
-        executed = title_signal or bool(dialogs)
+        executed = execution_observed(status, title, expected_title, dialogs)
         return {
             "page": page,
             "http_status": status,
@@ -80,7 +78,7 @@ def check_page(browser, url, expected_effect, request_body=None, request_headers
             "title": title,
             "executed": executed,
             "execution_signal": "dialog" if dialogs else ("title_change" if executed else "none"),
-            "expected_title": marker,
+            "expected_title": expected_title,
             "browser_error": None,
         }
     except Exception as exc:  # retain a per-case browser failure in evidence
