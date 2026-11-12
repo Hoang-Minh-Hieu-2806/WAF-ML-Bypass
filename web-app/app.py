@@ -11,6 +11,7 @@ Chi chay trong lab Docker noi bo, khong expose DB ra host, khong dung data that.
 """
 import logging
 import json
+import html
 import os
 import sys
 import threading
@@ -49,6 +50,26 @@ def record_evidence(response):
     if case_id:
         response.headers["X-Lab-Case-ID"] = case_id
     # Healthchecks do not belong to the experiment corpus.
+    if request.path in ("/comment", "/comment-escaped"):
+        raw_text = request.args.get("text", "")
+        rendered = response.get_data(as_text=True)
+        record = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "case_id": case_id,
+            "method": request.method,
+            "raw_target": request.path + ("?" + request.query_string.decode("ascii", errors="replace")
+                                          if request.query_string else ""),
+            "vuln": "xss",
+            # True only when the submitted value is present as-is in the HTML.
+            "xss_reflected": bool(raw_text) and raw_text in rendered,
+            "rendered_snippet": rendered[:200],
+            "http_status": response.status_code,
+        }
+        log_path = Path(os.getenv("APP_LOG", "/evidence/app.jsonl"))
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with EVIDENCE_LOCK, log_path.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(record, ensure_ascii=False) + "\n")
+        return response
     if request.path not in ("/search", "/product", "/login"):
         return response
     record = {
@@ -126,9 +147,27 @@ def _query(sql, reference_sql, reference_params):
 def index():
     return jsonify(
         service="waf-lab web-app",
-        endpoints=["GET /search?q=", "GET /product?id=", "POST /login"],
+        endpoints=["GET /search?q=", "GET /product?id=", "POST /login",
+                   "GET /comment?text=", "GET /comment-escaped?text="],
         ethics="lab-local only",
     )
+
+
+def _render_comment(text):
+    """Render user text in a fixed HTML template; callers choose raw or escaped sink."""
+    return f"<!doctype html><html><body><div class='note'>{text}</div></body></html>"
+
+
+@app.get("/comment")
+def comment():
+    # Deliberately raw sink for the local XSS/WAF experiment. Never use input as template source.
+    return app.response_class(_render_comment(request.args.get("text", "")), mimetype="text/html")
+
+
+@app.get("/comment-escaped")
+def comment_escaped():
+    text = request.args.get("text", "")
+    return app.response_class(_render_comment(html.escape(text)), mimetype="text/html")
 
 
 @app.get("/healthz")

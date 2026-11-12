@@ -93,5 +93,61 @@ class DatabaseConfigurationTests(unittest.TestCase):
             self.assertEqual(_db_config()["password"], "lab#only")
 
 
+class XssEndpointTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.path = Path(self.tmp.name) / "app.jsonl"
+        self.env = patch.dict(os.environ, {"APP_LOG": str(self.path)})
+        self.env.start()
+        self.client = app.test_client()
+
+    def tearDown(self):
+        self.env.stop()
+        self.tmp.cleanup()
+
+    def last_record(self):
+        return json.loads(self.path.read_text(encoding="utf-8").splitlines()[-1])
+
+    def test_ac1_comment_reflects_raw_markup_and_records_evidence(self):
+        payload = "<script>document.title='AC1'</script>"
+        response = self.client.get("/comment", query_string={"text": payload})
+        body = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.mimetype == "text/html")
+        self.assertIn(payload, body)
+        self.assertEqual(body.count("<html>"), 1)
+        record = self.last_record()
+        self.assertEqual(record["vuln"], "xss")
+        self.assertTrue(record["xss_reflected"])
+        self.assertEqual(record["rendered_snippet"], body[:200])
+
+    def test_ac2_escaped_control_does_not_reflect_executable_markup(self):
+        payload = "<script>document.title='AC1'</script>"
+        response = self.client.get("/comment-escaped", query_string={"text": payload})
+        body = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("&lt;script&gt;", body)
+        self.assertNotIn("<script>", body)
+        self.assertFalse(self.last_record()["xss_reflected"])
+
+    def test_ac3_single_encoded_markup_decodes_once_and_reaches_raw_sink(self):
+        response = self.client.get("/comment?text=%3Cscript%3E")
+        body = response.get_data(as_text=True)
+        self.assertIn("<script>", body)
+        self.assertTrue(self.last_record()["xss_reflected"])
+
+    def test_ac4_double_encoded_markup_is_not_decoded_twice(self):
+        response = self.client.get("/comment?text=%253Cscript%253E")
+        body = response.get_data(as_text=True)
+        self.assertIn("%3Cscript%3E", body)
+        self.assertNotIn("<script>", body)
+        # It is reflected literally, but remains encoded text and cannot execute as a tag.
+        self.assertTrue(self.last_record()["xss_reflected"])
+
+    def test_comment_template_is_fixed_and_does_not_evaluate_template_syntax(self):
+        response = self.client.get("/comment?text=%7B%7B7*7%7D%7D")
+        self.assertIn("{{7*7}}", response.get_data(as_text=True))
+
+
 if __name__ == "__main__":
     unittest.main()
