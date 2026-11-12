@@ -1,9 +1,11 @@
 """R8: probe the ML /score endpoint with representative lab cases.
 
 Works with the v1.0 binary contract ({label, score, model_version}) and the
-v1.1 three-class contract (adds scores, attack_score, threshold). Expectations
-follow design §9.5: attack payloads must reach the blocking threshold, benign
-texts and benign HTML must stay below it. Read-only: never mutates artifacts.
+v1.1 three-class contract (score is a benign/sqli/xss class map; attack_score
+and threshold are read from the response when present, otherwise derived as
+P(sqli)+P(xss) and 0.5). Expectations follow design §9.5: attack payloads must
+reach the blocking threshold, benign texts and benign HTML must stay below it.
+Read-only: never mutates artifacts.
 
 Usage:
   python scripts/probe_ml_score.py --port 8082
@@ -43,8 +45,11 @@ def score_once(base_url, text, timeout=10):
 
 
 def contract_of(body):
-    if isinstance(body.get("scores"), dict) and {"benign", "sqli", "xss"} <= set(body["scores"]):
-        return "v1.1-3class"
+    """v1.1 serves the class map in `score` (or defensively `scores`); v1.0 a float."""
+    for key in ("scores", "score"):
+        scores = body.get(key)
+        if isinstance(scores, dict) and {"benign", "sqli", "xss"} <= set(scores):
+            return "v1.1-3class"
     if "score" in body and "label" in body:
         return "v1.0-binary"
     return "unknown"
@@ -59,7 +64,7 @@ def evaluate(body, expect_attack):
         score = float(body["score"])
         blocked = score >= DEFAULT_THRESHOLD
     else:
-        scores = body["scores"]
+        scores = body.get("scores") or body.get("score")
         attack_score = float(body.get("attack_score",
                                      scores["sqli"] + scores["xss"]))
         threshold = float(body.get("threshold", DEFAULT_THRESHOLD))
