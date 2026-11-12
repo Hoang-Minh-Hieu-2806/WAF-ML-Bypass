@@ -81,6 +81,7 @@ services:
     container_name: waf-crs
     volumes:
       - ./logs/waf/integrated:/var/log/crs-integrated
+      - ./waf-crs/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf:ro
     env_file: .env
     environment:
       BACKEND: ${CRS_BACKEND:-http://web-app:5000}
