@@ -143,8 +143,8 @@ def main():
             except CorpusError as exc:
                 errors.append(str(exc))
 
-    if versions["v1"] != 26:
-        errors.append(f"expected 26 legacy v1 cases, found {versions['v1']}")
+    if versions["v1"] != 27:
+        errors.append(f"expected 27 legacy v1 cases, found {versions['v1']}")
     if versions["v2"] != 10:
         errors.append(f"expected 10 XSS v2 cases, found {versions['v2']}")
     xss_labels = Counter()

@@ -18,7 +18,7 @@ Hoàng implement). Thay đổi contract phải qua review nhóm.
 
 ## XSS v2 runner and browser verification
 
-`run_experiment.py` accepts both the 26 legacy SQLi v1 fixtures and the 10 XSS
+`run_experiment.py` accepts both the 27 legacy SQLi v1 fixtures and the 10 XSS
 v2 fixtures. v2 rows keep `vuln`, `family`, `expected_waf_outcome`, and
 `expected_app_effect` separate; raw ordered parameter pairs remain intact.
 SQLi uses the existing semantic-effect oracle. XSS reports an HTTP reflection

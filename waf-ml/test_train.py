@@ -10,7 +10,7 @@ class DatasetTests(unittest.TestCase):
     def test_corpus_expands_to_three_labels_with_family_metadata(self):
         rows = row_values()
         counts = Counter(label for _, label, _ in rows)
-        self.assertEqual(counts["sqli"], 146)
+        self.assertEqual(counts["sqli"], 147)
         self.assertEqual(counts["xss"], 57)
         self.assertEqual(counts["benign"], 223)
         self.assertEqual(len({text for text, _, _ in rows}), len(rows))

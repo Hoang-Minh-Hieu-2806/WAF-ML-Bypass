@@ -23,7 +23,7 @@ content-type confusion) chỉ tạo được khác nhau ở phía WAF vs app —
 
 | Nhóm | Neutral | Malicious | ý nghĩa |
 |---|---|---|---|
-| hpp | 3 | 3 | Duplicate key; Flask first-value-wins vs CRS merge ARGS: CRS cộng điểm trên mọi occurrence nên HPP khó đủ hiệu (giả thuyết cần đo) |
+| hpp | 3 | 4 | Duplicate key; `hpp-mal-004` confirms SQL arithmetic effect and a PL1–2 bypass in the local lab (see `results/gates/HPP-arithmetic-bypass-20261113.md`) |
 | double-encoding | 2 | 4 | DE/triple-encoded/UTF-8 overlong; **vì Flask không decode lần nữa nên không thể true bypass** — đo coverage transform `t:urlDecodeUni` của CRS |
 | case-comment | 3 | 5 | Case variation + `/**/` comment whítesspace — kỹ thuật mutation WAF-A-MoLE; app executible để có oracle đủ |
 | parsing-discrepancy | 3 | 3 | Chunked TE, GET-with-form-body, Content-Type mismatch — vùng WAF thấy khác app |
@@ -39,10 +39,20 @@ content-type confusion) chỉ tạo được khác nhau ở phía WAF vs app —
 - Ethical: payload chỉ ví dụ, không dùng đánh đổi tài khoản thật trong
   seed (`docker/db/init/02-seed.sql`).
 
+### Trạng thái tập train của model v1.1
+
+Model `lr-tfidf-3cls-1.1` đã train từ corpus 26 SQLi + 10 XSS (426 rows,
+`waf-ml/artifacts/v1.1/metrics.json`) — **TRƯỚC** khi thêm `hpp-mal-004`.
+Case này là **adversarial evaluation case**: dùng để đánh giá model và CRS,
+không thuộc tập train v1.1. `build_dataset.py` đọc toàn bộ corpus nên một lần
+train sau này (v1.2) sẽ gộp nó vào — đó là hành vi mong muốn của v1.2, nhưng
+evidence bypass v1.1 (`results/gates/HPP-arithmetic-bypass-20261113.md`)
+chỉ có giá trị so sánh khi model mốc giữ nguyên như hiện tại.
+
 ## XSS corpus v2 (10 cases)
 
-XSS fixtures extend the existing four technique files; the 26 SQLi fixtures
-remain in their original v1 format. The combined corpus has 36 cases: 4 benign
+XSS fixtures extend the existing four technique files; the 27 SQLi fixtures
+remain in their original v1 format. The combined corpus has 37 cases: 4 benign
 and 6 malicious XSS cases use the v2 envelope (`request`, `vuln`, `family`,
 `expected_waf_outcome`, and `expected_app_effect`).
 

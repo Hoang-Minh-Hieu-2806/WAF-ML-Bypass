@@ -58,7 +58,7 @@ class MetadataTests(unittest.TestCase):
 
     def test_v1_and_v2_are_normalized_without_losing_ordered_pairs(self):
         cases = runner.load_corpus(runner.DEFAULT_CORPUS)
-        self.assertEqual(len(cases), 36)
+        self.assertEqual(len(cases), 37)
         self.assertEqual(sum(case["vuln"] == "xss" for case in cases), 10)
         hpp = next(case for case in cases if case["id"] == "xss-hpp-mal-001")
         self.assertEqual(hpp["schema_version"], 2)
