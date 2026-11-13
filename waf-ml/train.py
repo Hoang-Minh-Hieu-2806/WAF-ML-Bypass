@@ -307,6 +307,12 @@ def ensure_model():
         raise FileNotFoundError(
             f"ML_MODEL_DIR points to missing artifact directory: {directory}; refusing to train over selection")
     directory = directory / "v1.1" if directory.name == "artifacts" else directory
+    if has_artifacts(directory) and not os.getenv("ML_FORCE_TRAIN"):
+        # Locked baseline: never silently retrain over an existing artifact set.
+        # A retrain must be deliberate (ML_FORCE_TRAIN=1) so that bypass evidence
+        # recorded against the served model keeps its comparison conditions.
+        return json.loads((directory / "metrics.json").read_text(
+            encoding="utf-8")).get("model_version", MODEL_VERSION)
     metrics = train_and_save(str(directory))
     os.environ["ML_MODEL_DIR"] = str(directory)
     return metrics["model_version"]

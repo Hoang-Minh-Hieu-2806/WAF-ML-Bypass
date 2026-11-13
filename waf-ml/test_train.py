@@ -40,5 +40,33 @@ class DatasetTests(unittest.TestCase):
         self.assertEqual(len(splits), 4)
 
 
+class EnsureModelLockTests(unittest.TestCase):
+    def test_existing_artifacts_are_loaded_not_retrained(self):
+        import json as _json
+        import os
+        import tempfile
+        import unittest.mock as _mock
+
+        import train
+
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact_dir = os.path.join(tmp, "artifacts", "v1.1")
+            os.makedirs(artifact_dir)
+            with open(os.path.join(artifact_dir, "model.joblib"), "wb") as fh:
+                fh.write(b"x")
+            with open(os.path.join(artifact_dir, "metrics.json"), "w",
+                      encoding="utf-8") as fh:
+                _json.dump({"model_version": "locked-1.0"}, fh)
+            env = {
+                "ML_MODEL_DIR": os.path.join(tmp, "artifacts"),
+                "ML_FORCE_TRAIN": "",
+            }
+            with _mock.patch.dict(os.environ, env, clear=False), \
+                 _mock.patch.object(train, "train_and_save") as never_train:
+                never_train.side_effect = AssertionError("must not retrain over artifacts")
+                version = train.ensure_model()
+            self.assertEqual(version, "locked-1.0")
+
+
 if __name__ == "__main__":
     unittest.main()
