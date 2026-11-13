@@ -9,12 +9,15 @@ RUN-B `20261113T110057Z-5a65730f` (hybrid); model `lr-tfidf-3cls-1.1` (artifact
 `model.joblib` `14d536acfb5f4062…`). Định nghĩa giữ nguyên bản 36-case:
 detected = runner `detected` (ML-only: `ml_enforcement.label` ∈ {sqli,xss});
 blocked = `waf_decision=blocked` (ML-only: `ml_enforcement.decision=blocked`);
-true bypass = `outcome=true_bypass` (WAF cho qua + hiệu ứng ứng dụng thật);
+true bypass = `outcome=true_bypass` — ML-only dùng `ml_enforcement.true_bypass`
+(bypass của tầng ML độc lập, kể cả khi CRS chặn ở PL3);
 effect = `semantic_effect=true` trên rows malicious (không đo ở ML-only).
 Hash toàn bộ run: [run-audit-37case-20261113](../gates/run-audit-37case-20261113.md).
 
 **Bypass duy nhất của corpus:** `hpp-mal-004` — true bypass PL1–2 trên CRS-only
-và hybrid; PL1–3 trên ML-only (attack score 0.276 < 0.5). Tất cả cell khác = 0.
+và hybrid; **cả 3 PL trên ML-only** (`ml_enforcement.true_bypass` PL1–3,
+attack score 0.276 < 0.5; ở PL3 CRS chặn trước nên bypass end-to-end chỉ PL1–2).
+Tất cả cell khác = 0.
 
 **Đánh đổi PL3 (cả RUN-A và RUN-B): 10/15 case benign bị chặn**
 — CRS-only 7/11 SQLi benign + 3/4 XSS benign; hybrid tương tự. Giá điều chỉnh
@@ -71,7 +74,7 @@ paranoia cao: block 100% malicious nhưng FPR benign tăng mạnh.
 | 2 | xss | parsing-discrepancy | 1/1 | 1/1 | 0/1 | — | 0/2 |
 | 3 | sqli | case-comment | 5/5 | 5/5 | 0/5 | — | 0/3 |
 | 3 | sqli | double-encoding | 4/4 | 4/4 | 0/4 | — | 0/2 |
-| 3 | sqli | hpp | 3/4 | 3/4 | 0/4 | — | 0/3 |
+| 3 | sqli | hpp | 3/4 | 3/4 | 1/4 | — | 0/3 |
 | 3 | sqli | parsing-discrepancy | 3/3 | 3/3 | 0/3 | — | 0/3 |
 | 3 | xss | case-comment | 3/3 | 3/3 | 0/3 | — | 0/0 |
 | 3 | xss | double-encoding | 1/1 | 1/1 | 0/1 | — | 0/1 |
