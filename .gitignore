@@ -287,3 +287,4 @@ temp/
 *.bak
 *.orig
 *.rej
+graphify-out/
