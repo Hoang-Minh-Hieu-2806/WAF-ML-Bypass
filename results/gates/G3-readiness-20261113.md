@@ -2,6 +2,8 @@
 
 **Status: NOT READY; G3 is not signed.** This audit applies the G3 Definition of Done in `report/execution-plan-v3.1-2-tuan.md` §6. G2 remains signed as recorded in `R13-checklist-20261112.md`; the R7 replay correction and [HPP arithmetic bypass](HPP-arithmetic-bypass-20261113.md) are post-sign-off addenda for the next group review.
 
+**Addendum (2026-11-13, evening):** official 37-case runs are recorded and hash-locked in [run-audit-37case](run-audit-37case-20261113.md) — RUN-A `20261113T105850Z-f4deea31` (direct) and RUN-B `20261113T110057Z-5a65730f` (hybrid); 111 rows each, incomplete/control-invalid/pending all zero; 108 legacy case-rounds identical to the post-G2 36-case candidates. Model v1.1 is now protected against silent retrain (`ML_FORCE_TRAIN` guard, commit `e6509f2`); the rebuilt image re-ran 12 tests OK with unchanged artifact hashes. The 37-case metrics table is [g3-candidate-metrics-37case](../tables/g3-candidate-metrics-37case-20261113.md).
+
 | G3 criterion | Status | Evidence / remaining work |
 | --- | --- | --- |
 | R0–R13 pass; pending lists empty | PASS with R7 addendum | R13 checklist records R0–R13. Pending lists for the signed baseline runs and post-G2 A/B candidates are empty. Corrected exact-header R7 replay is in [R7 correction](R7-replay-correction-20261113.md). Include the correction in group review. |

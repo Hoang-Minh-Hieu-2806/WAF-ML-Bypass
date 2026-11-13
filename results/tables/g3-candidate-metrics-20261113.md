@@ -1,5 +1,9 @@
 # G3 candidate metrics by vulnerability, technique, configuration, and PL
 
+> **HISTORICAL (2026-11-13): corpus 36 case — KHÔNG dùng làm kết quả cuối.**
+> Bảng chính thức cho corpus 37 case (có `hpp-mal-004`):
+> [g3-candidate-metrics-37case-20261113.md](g3-candidate-metrics-37case-20261113.md).
+
 These tables use the post-G2 CRS hardening candidate runs. CRS-only and ML-only rows come from RUN-A `20261112T171730Z-efb04f02`; hybrid rows come from RUN-B `20261112T171923Z-0a05d016`. Each row is a case-round at one PL. The R7 replay correction does not change the row outcome, WAF decision, detection, blocking, or effect fields; it adds exact-header execution evidence for the existing XSS double-encoding pending case.
 
 For CRS-only and hybrid, detection uses the runner `detected` field, blocking uses `waf_decision=blocked`, and effect counts malicious rows with `semantic_effect=true`. For ML-only, detection uses the model predicted class (`ml_enforcement.label` in `{sqli,xss}`) and blocking uses `ml_enforcement.decision=blocked`; app effect is not measured on the standalone ML endpoint. Benign blocked is computed from each configuration’s decision. A slash shows count/total.
