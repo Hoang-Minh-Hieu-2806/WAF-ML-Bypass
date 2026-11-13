@@ -44,14 +44,14 @@ def marker_for(request):
 
 
 def check_page(browser, url, expected_title, request_body=None, request_headers=None,
-               timeout_ms=1000):
+               timeout_ms=1000, request_method="GET", force_http=False):
     page = browser.new_page()
     dialogs = []
     page.on("dialog", lambda dialog: (dialogs.append(dialog.type), dialog.accept()))
     response = None
     error = None
     try:
-        if request_body is None:
+        if request_body is None and not force_http:
             response = page.goto(url, wait_until="load", timeout=15000)
             status = response.status if response else None
             body = response.text() if response else ""
@@ -60,7 +60,7 @@ def check_page(browser, url, expected_title, request_body=None, request_headers=
             connection = HTTPConnection(parsed.hostname, parsed.port or 80, timeout=15)
             try:
                 target = parsed.path + (("?" + parsed.query) if parsed.query else "")
-                connection.request("GET", target, body=request_body,
+                connection.request(request_method, target, body=request_body,
                                    headers=request_headers or {})
                 response = connection.getresponse()
                 status = response.status
@@ -191,12 +191,26 @@ def verify_waf_path(cases, pending_file, output_dir, env, config, level):
                 continue
             request = runner.wire_request(case)
             url = request_url(base, request)
-            get_body = (urlencode([tuple(pair) for pair in request.get("form", [])]).encode("ascii")
-                        if request["method"] == "GET" and request.get("form") else None)
-            get_headers = request.get("headers", {})
-            if get_body is not None and not any(key.lower() == "content-type" for key in get_headers):
-                get_headers = {**get_headers, "Content-Type": "application/x-www-form-urlencoded"}
-            result = check_page(browser, url, marker_for(request), get_body, get_headers)
+            request_body = (urlencode([tuple(pair) for pair in request.get("form", [])]).encode("ascii")
+                            if request.get("form") else None)
+            port = urlsplit(base).port
+            request_headers = {
+                "Host": f"localhost:{port}",
+                "X-Lab-Case-ID": f"{item['run_id']}-browser-pl{level}-{item['case_id']}",
+                "User-Agent": "experiment-runner/1.0",
+                "Accept": "application/json",
+            }
+            if request_body is not None:
+                request_headers["Content-Type"] = request.get("headers", {}).get(
+                    "Content-Type", "application/x-www-form-urlencoded")
+            for key, value in request.get("headers", {}).items():
+                if key.lower() == "content-type":
+                    request_headers["Content-Type"] = value
+                else:
+                    request_headers[key] = value
+            result = check_page(browser, url, marker_for(request), request_body,
+                                request_headers, request_method=request["method"],
+                                force_http=True)
             expected_status = result["http_status"]
             execution_status = ("blocked" if expected_status == 403 else
                                 "executed" if result["executed"] else "not_executed")
@@ -208,6 +222,8 @@ def verify_waf_path(cases, pending_file, output_dir, env, config, level):
                 "endpoint": request["path"],
                 "test_timestamp": datetime.now(timezone.utc).isoformat(),
                 "http_status": expected_status, "reflected": bool(item.get("reflected")),
+                "request_method": request["method"], "request_url": url,
+                "request_headers": request_headers,
                 "executed": result["executed"], "execution_status": execution_status,
                 "execution_signal": result["execution_signal"],
                 "browser_error": result["browser_error"],
