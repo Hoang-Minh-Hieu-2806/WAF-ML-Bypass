@@ -17,7 +17,9 @@ The same 36-case corpus was run at PL1, PL2, and PL3, before and after the excep
 
 Across each before/after pair, there were zero changed WAF decisions among SQLi cases and zero changed WAF decisions among malicious XSS cases. Four XSS benign case-level decisions changed from blocked to allowed: `xss-de-ben-001` PL2, `xss-hpp-ben-001` PL2, and `xss-pd-ben-002` PL2 and PL3. No other benign decisions changed. All four experiment runs report zero true bypasses, incomplete requests, invalid controls, and execution-unverified cases.
 
-For the sole pending browser check in the direct candidate, `xss-de-mal-001` at PL2, browser evidence confirms `blocked HTTP 403`; the candidate run's pending list is now empty. The hybrid candidate had no pending browser checks.
+The initial browser replay for the direct candidate's `xss-de-mal-001` PL2 returned 403, but it did not replay the experiment runner's request headers. The runner sends `Host: localhost:<port>`, `User-Agent: experiment-runner/1.0`, `Accept: application/json`, and `X-Lab-Case-ID`; a default Chromium navigation sends different headers. A controlled reproduction returned HTTP 200 with runner headers and HTTP 403 with Chromium defaults.
+
+The verifier now sends the runner headers, then loads the returned response body in Playwright. Corrected PL2 replays for both the pre-hardening RUN-A and this direct candidate returned HTTP 200, no reflection, and no script execution (`execution_status=not_executed`). The candidate's row remains `pass_without_effect`, `semantic_effect=false`, and `true_bypass_xss=false`; the pending lists are empty. The hybrid candidate had no pending browser checks. The original default-header evidence is preserved as `evidence.browser-default-header-replay.json` beside the corrected baseline evidence.
 
 ## Validation and limits
 
@@ -31,4 +33,6 @@ For the sole pending browser check in the direct candidate, `xss-de-mal-001` at 
 - Direct candidate summary and rows: `results/raw/experiments/20261112T171730Z-efb04f02/`
 - Hybrid candidate summary and rows: `results/raw/experiments/20261112T171923Z-0a05d016/`
 - Browser evidence: `results/raw/browser/20261112T171730Z-efb04f02/crs_only/pl2/evidence.json`
+- Baseline corrected replay: `results/raw/browser/20261112T163850Z-de5655c2/crs_only/pl2/evidence.json`
+- Superseded default-header replay preserved for audit: `results/raw/browser/20261112T163850Z-de5655c2/crs_only/pl2/evidence.browser-default-header-replay.json`
 - Before-run evidence: `results/raw/experiments/20261112T163850Z-de5655c2/` and `results/raw/experiments/20261112T164025Z-397bbedb/`
