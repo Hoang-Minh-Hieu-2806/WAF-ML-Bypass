@@ -252,6 +252,8 @@ def update_run_results(records, run_dir):
     pending = json.loads(pending_path.read_text(encoding="utf-8"))
     completed = set()
     for record in records:
+        if record.get("browser_error"):
+            continue
         config = record["configuration"]
         key = (record["case_id"], config, record["paranoia_level"])
         completed.add(key)
@@ -260,6 +262,8 @@ def update_run_results(records, run_dir):
                     and item["paranoia_level"] == record["paranoia_level"]), None)
         if row is None:
             raise RuntimeError(f"No result row for browser evidence {key}")
+        if record["http_status"] != row["http_status"]:
+            raise RuntimeError(f"Browser replay HTTP status differs from run row for {key}")
         executed = record["execution_status"] == "executed"
         reflected = record["reflected"]
         if config == "ml_only":

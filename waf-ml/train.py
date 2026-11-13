@@ -290,29 +290,22 @@ def train_and_save(out_dir=None, corpus_root=None, baseline_dir=None):
 def ensure_model():
     selected_dir = os.getenv("ML_MODEL_DIR")
     directory = Path(selected_dir) if selected_dir else Path("artifacts/v1.1")
+    if directory.name == "artifacts":
+        directory /= "v1.1"
 
     def has_artifacts(target):
         return (target / "model.joblib").exists() and (target / "metrics.json").exists()
 
-    if has_artifacts(directory):
+    force_train = os.getenv("ML_FORCE_TRAIN") == "1"
+    if force_train and directory.name == "v1.0":
+        raise ValueError("Refusing to overwrite the v1.0 baseline artifact")
+    if has_artifacts(directory) and not force_train:
         os.environ["ML_MODEL_DIR"] = str(directory)
         return json.loads((directory / "metrics.json").read_text(
             encoding="utf-8")).get("model_version", MODEL_VERSION)
-    if directory.name == "artifacts" and has_artifacts(directory / "v1.1"):
-        directory = directory / "v1.1"
-        os.environ["ML_MODEL_DIR"] = str(directory)
-        return json.loads((directory / "metrics.json").read_text(
-            encoding="utf-8")).get("model_version", MODEL_VERSION)
-    if selected_dir and directory.name != "artifacts":
+    if not force_train:
         raise FileNotFoundError(
-            f"ML_MODEL_DIR points to missing artifact directory: {directory}; refusing to train over selection")
-    directory = directory / "v1.1" if directory.name == "artifacts" else directory
-    if has_artifacts(directory) and not os.getenv("ML_FORCE_TRAIN"):
-        # Locked baseline: never silently retrain over an existing artifact set.
-        # A retrain must be deliberate (ML_FORCE_TRAIN=1) so that bypass evidence
-        # recorded against the served model keeps its comparison conditions.
-        return json.loads((directory / "metrics.json").read_text(
-            encoding="utf-8")).get("model_version", MODEL_VERSION)
+            f"Missing model artifacts at {directory}; set ML_FORCE_TRAIN=1 to train explicitly")
     metrics = train_and_save(str(directory))
     os.environ["ML_MODEL_DIR"] = str(directory)
     return metrics["model_version"]

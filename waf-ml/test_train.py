@@ -41,6 +41,21 @@ class DatasetTests(unittest.TestCase):
 
 
 class EnsureModelLockTests(unittest.TestCase):
+    def test_missing_artifacts_do_not_silently_train(self):
+        import os
+        import tempfile
+        import unittest.mock as _mock
+
+        import train
+
+        with tempfile.TemporaryDirectory() as tmp, \
+             _mock.patch.dict(os.environ, {"ML_MODEL_DIR": os.path.join(tmp, "artifacts"),
+                                            "ML_FORCE_TRAIN": ""}), \
+             _mock.patch.object(train, "train_and_save") as retrain:
+            with self.assertRaises(FileNotFoundError):
+                train.ensure_model()
+            retrain.assert_not_called()
+
     def test_existing_artifacts_are_loaded_not_retrained(self):
         import json as _json
         import os
@@ -66,6 +81,41 @@ class EnsureModelLockTests(unittest.TestCase):
                 never_train.side_effect = AssertionError("must not retrain over artifacts")
                 version = train.ensure_model()
             self.assertEqual(version, "locked-1.0")
+
+    def test_force_train_replaces_existing_v11_only_when_requested(self):
+        import json as _json
+        import os
+        import tempfile
+        import unittest.mock as _mock
+
+        import train
+
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact_dir = os.path.join(tmp, "artifacts", "v1.1")
+            os.makedirs(artifact_dir)
+            with open(os.path.join(artifact_dir, "model.joblib"), "wb") as fh:
+                fh.write(b"x")
+            with open(os.path.join(artifact_dir, "metrics.json"), "w", encoding="utf-8") as fh:
+                _json.dump({"model_version": "old"}, fh)
+            with _mock.patch.dict(os.environ, {"ML_MODEL_DIR": os.path.dirname(artifact_dir),
+                                            "ML_FORCE_TRAIN": "1"}), \
+                 _mock.patch.object(train, "train_and_save",
+                                    return_value={"model_version": "new"}) as retrain:
+                self.assertEqual(train.ensure_model(), "new")
+                retrain.assert_called_once_with(artifact_dir)
+
+    def test_force_train_cannot_overwrite_v10(self):
+        import os
+        import unittest.mock as _mock
+
+        import train
+
+        with _mock.patch.dict(os.environ, {"ML_MODEL_DIR": "artifacts/v1.0",
+                                            "ML_FORCE_TRAIN": "1"}), \
+             _mock.patch.object(train, "train_and_save") as retrain:
+            with self.assertRaises(ValueError):
+                train.ensure_model()
+            retrain.assert_not_called()
 
 
 if __name__ == "__main__":

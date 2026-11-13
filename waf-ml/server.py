@@ -1,9 +1,7 @@
 """T03 — entrypoint của waf-ml container: bảo đảm model + chạy uvicorn.
 
-Nếu $ML_MODEL_DIR/chưa có model.joblib -> train nhanh trước, rồi set env
-ML_MODEL_VERSION để app.py dùng đúng phiên bản sinh ra. Đảm bảo image luôn
-khớp sklearn version pin trong requirements (host train bằng 1.9 cũng có thể
-khác, container tự train lại để pickle liền mạch).
+Nạp artifact đã chọn và set ML_MODEL_VERSION cho app.py. Chỉ train khi
+ML_FORCE_TRAIN=1 được đặt rõ ràng; tránh thay đổi model mốc khi artifact thiếu.
 """
 import os
 
@@ -15,11 +13,6 @@ def main():
     from train import ensure_model
 
     version = ensure_model()
-    # ensure_model may select the new default artifacts/v1.1 when the image
-    # has no mounted artifact; app.py must load that exact directory.
-    selected = os.getenv("ML_MODEL_DIR")
-    if selected:
-        os.environ["ML_MODEL_DIR"] = selected
     os.environ["ML_MODEL_VERSION"] = version
     print(f"[waf-ml] model ready: {version}", flush=True)
     uvicorn.run("app:app", host="0.0.0.0", port=port, log_level="info")
