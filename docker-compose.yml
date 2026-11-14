@@ -128,6 +128,7 @@ services:
     environment:
       PORT: "5001"
       ML_BACKEND: http://web-app:5000
+      ML_MODEL_DIR: ${ML_MODEL_DIR:-/app/artifacts/v1.1}
       ML_THRESHOLD: ${ML_THRESHOLD:-0.5}
       ML_EVIDENCE_LOG: /evidence/ml.jsonl
     volumes:

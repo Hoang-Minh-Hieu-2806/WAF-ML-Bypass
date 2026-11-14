@@ -262,11 +262,13 @@ def update_run_results(records, run_dir):
                     and item["paranoia_level"] == record["paranoia_level"]), None)
         if row is None:
             raise RuntimeError(f"No result row for browser evidence {key}")
-        if record["http_status"] != row["http_status"]:
+        expected_status = (row.get("ml_http_status") if config == "ml_only"
+                           else row["http_status"])
+        if record["http_status"] != expected_status:
             raise RuntimeError(f"Browser replay HTTP status differs from run row for {key}")
         executed = record["execution_status"] == "executed"
         reflected = record["reflected"]
-        if config == "ml_only":
+        if config in ("ml_only", "hybrid"):
             ml = row.setdefault("ml_enforcement", {})
             ml["execution_status"] = record["execution_status"]
             ml["reflected"] = reflected

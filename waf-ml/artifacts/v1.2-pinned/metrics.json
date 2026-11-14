@@ -1,0 +1,76 @@
+{
+  "model_version": "lr-tfidf-3cls-1.2",
+  "sklearn_version": "1.7.1",
+  "dataset": {
+    "source": "Morzeux/HttpParamsDataset",
+    "train_rows_used": 20460,
+    "test_rows_used": 10228,
+    "train_class_counts": {
+      "benign": 12870,
+      "sqli": 7235,
+      "xss": 355
+    },
+    "test_class_counts": {
+      "benign": 6434,
+      "sqli": 3617,
+      "xss": 177
+    },
+    "sha256": {
+      "train": "dfa6e59c87b2bafc485c9cb14d37e3f86607d180e5a22e7c46dae6d3d1dd6a16",
+      "test": "d8015e256ce4499c8ac7a8be8dd25de6487cf018601edf1a03a408a2c8f0e39d"
+    }
+  },
+  "features": "TfidfVectorizer char_wb ngram_range=(1,2), sublinear_tf=True, min_df=1",
+  "model": "LogisticRegression C=2.0, max_iter=2000",
+  "threshold": 0.5,
+  "evaluation": {
+    "accuracy": 0.9994133750488854,
+    "macro_f1": 0.9950230138668085,
+    "per_class": {
+      "benign": {
+        "precision": 0.9990683229813665,
+        "recall": 1.0,
+        "f1": 0.9995339443840299,
+        "support": 6434
+      },
+      "sqli": {
+        "precision": 1.0,
+        "recall": 0.9997235277854576,
+        "f1": 0.9998617447808654,
+        "support": 3617
+      },
+      "xss": {
+        "precision": 1.0,
+        "recall": 0.9717514124293786,
+        "f1": 0.9856733524355301,
+        "support": 177
+      }
+    },
+    "confusion_labels": [
+      "benign",
+      "sqli",
+      "xss"
+    ],
+    "confusion_matrix": [
+      [
+        6434,
+        0,
+        0
+      ],
+      [
+        1,
+        3616,
+        0
+      ],
+      [
+        5,
+        0,
+        172
+      ]
+    ],
+    "benign_to_sqli_fpr": 0.0,
+    "benign_to_xss_fpr": 0.0,
+    "binary_attack_f1": 0.9994725738396625
+  },
+  "evaluation_note": "Official source train/test split; payload-level holdout, not a family-disjoint or real-traffic evaluation."
+}

@@ -9,4 +9,6 @@ temp
 **/.venv
 **/node_modules
 dataset/raw
+!dataset/raw/httpparamsdataset/
+!dataset/raw/httpparamsdataset/**
 dataset/processed

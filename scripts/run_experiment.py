@@ -647,26 +647,34 @@ def run_level(level, cases, out, metadata, env, skip_ml=False):
         ml_app_record = app_map.get(ml_cid) if probe_ml else None
         hybrid_record = ml_map.get(cid) if metadata["crs_backend"] == "ml" else None
         row["hybrid_ml_evidence"] = hybrid_record
-        if probe_ml:
+        if probe_ml or hybrid_record:
+            effective_ml_record = ml_record or hybrid_record
+            effective_ml_status = (row["ml_http_status"] if probe_ml
+                                   else row["http_status"])
+            effective_ml_app = (ml_app_record if probe_ml else app_record)
+            effective_ml_error = row["ml_error"] if probe_ml else row["waf_error"]
+            effective_ml_body = (row["ml_response_body"] if probe_ml
+                                 else row["response_body"])
             ml_result = {
                 "decision": None, "outcome": "unclassified", "true_bypass": None,
-                "http_status": row["ml_http_status"], "latency_ms": row["ml_latency_ms"],
-                "app_evidence": ml_app_record,
+                "http_status": effective_ml_status,
+                "latency_ms": row["ml_latency_ms"] if probe_ml else row["latency_ms"],
+                "app_evidence": effective_ml_app,
             }
-            if ml_record:
-                ml_result.update(ml_evidence_fields(ml_record))
-            ml_blocked = (row["ml_http_status"] == 403 and ml_record
-                          and ml_record.get("decision") == "blocked"
-                          and ml_app_record is None)
-            ml_allowed = (row["ml_http_status"] == 200 and ml_record
-                          and ml_record.get("decision") == "allowed"
-                          and ml_app_record is not None)
-            ml_effect = bool(ml_app_record and ml_app_record.get("semantic_effect"))
+            if effective_ml_record:
+                ml_result.update(ml_evidence_fields(effective_ml_record))
+            ml_blocked = (effective_ml_status == 403 and effective_ml_record
+                          and effective_ml_record.get("decision") == "blocked"
+                          and effective_ml_app is None)
+            ml_allowed = (effective_ml_status == 200 and effective_ml_record
+                          and effective_ml_record.get("decision") == "allowed"
+                          and effective_ml_app is not None)
+            ml_effect = bool(effective_ml_app and effective_ml_app.get("semantic_effect"))
             if not valid_control:
                 ml_result["outcome"] = "control_invalid"
-            elif row["ml_error"] or row["ml_http_status"] is None:
+            elif effective_ml_error or effective_ml_status is None:
                 ml_result["outcome"] = "transport_error"
-            elif not ml_record:
+            elif not effective_ml_record:
                 ml_result["outcome"] = "missing_evidence"
             elif ml_blocked:
                 ml_result.update(decision="blocked", outcome=(
@@ -685,12 +693,12 @@ def run_level(level, cases, out, metadata, env, skip_ml=False):
                                  semantic_effect=ml_effect)
                 if row["vuln"] == "xss":
                     ml_result["reflected"] = xss_http_oracle(
-                        row["ml_response_body"],
+                        effective_ml_body,
                         (row.get("escaped_direct_response") or {}).get("body", ""),
                         xss_payload(wire_request(row["request"])))
                     ml_result["execution_status"] = (
                         "execution_unverified" if intended else "not_applicable")
-            row["ml"] = ml_record or {}
+            row["ml"] = effective_ml_record or {}
             row["ml_enforcement"] = ml_result
         rule_ids = []
         row["detected"] = False

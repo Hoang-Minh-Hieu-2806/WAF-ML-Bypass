@@ -1,6 +1,10 @@
 """Regression checks for dataset generation and family-aware validation."""
 import unittest
 from collections import Counter
+import csv
+import tempfile
+from pathlib import Path
+from unittest import mock
 
 from build_dataset import benign_html_checks, benign_html_training, row_values
 from train import CLASS_ORDER, family_counts, make_valid_splits
@@ -38,6 +42,41 @@ class DatasetTests(unittest.TestCase):
                             fold["validation_classes"] == CLASS_ORDER
                             for fold in report["folds"]))
         self.assertEqual(len(splits), 4)
+
+    def test_combined_external_training_deduplicates_and_excludes_lab_test_overlap(self):
+        import train
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            train_path, test_path = root / "train.csv", root / "test.csv"
+            for path, rows in (
+                (train_path, [("payload", "attack_type"),
+                              ("normal", "norm"), ("SQLi payload", "sqli"),
+                              ("xss payload", "xss"), (" NORMAL ", "norm")]),
+                (test_path, [("payload", "attack_type"),
+                             ("lab test match", "norm"), ("benign holdout", "norm"),
+                             ("sqli holdout", "sqli"), ("xss holdout", "xss")]),
+            ):
+                with path.open("w", newline="", encoding="utf-8") as stream:
+                    csv.writer(stream).writerows(rows)
+            lab_rows = [("SQLI PAYLOAD", "sqli", "lab"),
+                        ("lab test match", "benign", "lab"),
+                        (" LAB TEST MATCH ", "benign", "lab"),
+                        ("new lab xss", "xss", "lab")]
+            with mock.patch.object(train, "row_values", return_value=lab_rows):
+                metrics = train.train_combined_external_dataset(
+                    train_path, test_path, out_dir=root / "artifacts")
+
+        dataset = metrics["dataset"]
+        self.assertEqual(dataset["external_train_class_counts"],
+                         {"benign": 2, "sqli": 1, "xss": 1})
+        self.assertEqual(dataset["lab_class_counts"],
+                         {"benign": 2, "sqli": 1, "xss": 1})
+        self.assertEqual(dataset["dedup"]["external_train_internal_duplicates"], 1)
+        self.assertEqual(dataset["dedup"]["lab_internal_duplicates"], 1)
+        self.assertEqual(dataset["dedup"]["lab_rows_deduplicated_against_external_train"], 1)
+        self.assertEqual(dataset["dedup"]["external_test_rows_excluded_for_lab_overlap"], 1)
+        self.assertEqual(dataset["external_test_rows_used"], 3)
 
 
 class EnsureModelLockTests(unittest.TestCase):

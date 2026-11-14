@@ -1,5 +1,7 @@
 """Train the three-class ML-WAF and validate by payload family."""
 import argparse
+import csv
+import hashlib
 import json
 import os
 from datetime import datetime, timezone
@@ -15,7 +17,8 @@ from sklearn.metrics import (accuracy_score, confusion_matrix, f1_score,
 from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.pipeline import Pipeline
 
-from build_dataset import _request_text, benign_html_checks, row_values
+from build_dataset import (_request_text, benign_html_checks,
+                           default_corpus_root, row_values)
 
 MODEL_VERSION = "lr-tfidf-3cls-1.1"
 CLASS_ORDER = ["benign", "sqli", "xss"]
@@ -29,6 +32,177 @@ def build_pipeline():
                                   sublinear_tf=True, min_df=1)),
         ("clf", LogisticRegression(max_iter=2000, C=2.0)),
     ])
+
+
+def train_external_dataset(train_csv, test_csv, out_dir="artifacts/v1.2"):
+    """Train v1.2 on the published payload split and evaluate on its held-out split."""
+    label_map = {"norm": "benign", "sqli": "sqli", "xss": "xss"}
+
+    def load(path):
+        rows = []
+        with open(path, newline="", encoding="utf-8-sig") as stream:
+            reader = csv.DictReader(stream)
+            if not {"payload", "attack_type"}.issubset(reader.fieldnames or []):
+                raise ValueError(f"Unexpected dataset schema: {path}")
+            for row in reader:
+                label = label_map.get(row["attack_type"])
+                text = row["payload"].strip()
+                if label and text:
+                    rows.append((text, label))
+        if not rows or {label for _, label in rows} != set(CLASS_ORDER):
+            raise ValueError(f"Expected non-empty benign/sqli/xss rows in {path}")
+        return rows
+
+    train_rows, test_rows = load(train_csv), load(test_csv)
+    train_texts, train_labels = zip(*train_rows)
+    test_texts, test_labels = zip(*test_rows)
+    model = build_pipeline().fit(train_texts, train_labels)
+    predictions = model.predict(test_texts)
+    probabilities = model.predict_proba(test_texts)
+    test_labels = np.asarray(test_labels)
+    per_class = per_class_metrics(test_labels, predictions)
+    benign = test_labels == "benign"
+    attack = probabilities[:, list(model.classes_).index("sqli")] + probabilities[:, list(model.classes_).index("xss")]
+    binary_true = ~benign
+    binary_pred = attack >= THRESHOLD
+    hashes = {}
+    for name, path in (("train", train_csv), ("test", test_csv)):
+        hashes[name] = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    metrics = {
+        "model_version": "lr-tfidf-3cls-1.2", "sklearn_version": sklearn.__version__,
+        "dataset": {"source": "Morzeux/HttpParamsDataset", "train_rows_used": len(train_rows),
+                    "test_rows_used": len(test_rows),
+                    "train_class_counts": {label: sum(y == label for _, y in train_rows) for label in CLASS_ORDER},
+                    "test_class_counts": {label: int(np.sum(test_labels == label)) for label in CLASS_ORDER},
+                    "sha256": hashes},
+        "features": "TfidfVectorizer char_wb ngram_range=(1,2), sublinear_tf=True, min_df=1",
+        "model": "LogisticRegression C=2.0, max_iter=2000", "threshold": THRESHOLD,
+        "evaluation": {"accuracy": float(accuracy_score(test_labels, predictions)),
+                       "macro_f1": float(f1_score(test_labels, predictions, labels=CLASS_ORDER, average="macro", zero_division=0)),
+                       "per_class": per_class, "confusion_labels": CLASS_ORDER,
+                       "confusion_matrix": confusion_matrix(test_labels, predictions, labels=CLASS_ORDER).tolist(),
+                       "benign_to_sqli_fpr": float(np.mean(predictions[benign] == "sqli")),
+                       "benign_to_xss_fpr": float(np.mean(predictions[benign] == "xss")),
+                       "binary_attack_f1": float(f1_score(binary_true, binary_pred, zero_division=0))},
+        "evaluation_note": "Official source train/test split; payload-level holdout, not a family-disjoint or real-traffic evaluation.",
+    }
+    output = Path(out_dir)
+    output.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, output / "model.joblib", compress=3)
+    (output / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+    return metrics
+
+
+def train_combined_external_dataset(train_csv, test_csv, corpus_root=None,
+                                    out_dir="artifacts/v1.3"):
+    """Train on the published train split plus unique rows from the lab corpus."""
+    label_map = {"norm": "benign", "sqli": "sqli", "xss": "xss"}
+
+    def load(path):
+        rows = []
+        with open(path, newline="", encoding="utf-8-sig") as stream:
+            reader = csv.DictReader(stream)
+            if not {"payload", "attack_type"}.issubset(reader.fieldnames or []):
+                raise ValueError(f"Unexpected dataset schema: {path}")
+            for row in reader:
+                label = label_map.get(row["attack_type"])
+                text = row["payload"].strip()
+                if label and text:
+                    rows.append((text, label))
+        if not rows or {label for _, label in rows} != set(CLASS_ORDER):
+            raise ValueError(f"Expected non-empty benign/sqli/xss rows in {path}")
+        return rows
+
+    external_rows, test_rows = load(train_csv), load(test_csv)
+    lab_rows = [(text, label) for text, label, _ in row_values(corpus_root)]
+    normalize = lambda text: text.strip().lower()
+
+    def deduplicate(rows):
+        unique, seen = [], set()
+        for text, label in rows:
+            key = normalize(text)
+            if key and key not in seen:
+                seen.add(key)
+                unique.append((text, label))
+        return unique, len(rows) - len(unique)
+
+    external_unique, external_internal_dups = deduplicate(external_rows)
+    lab_unique, lab_internal_dups = deduplicate(lab_rows)
+    external_keys = {normalize(text) for text, _ in external_unique}
+    lab_cross_dups = sum(normalize(text) in external_keys for text, _ in lab_unique)
+    combined_rows = external_unique + [
+        row for row in lab_unique if normalize(row[0]) not in external_keys
+    ]
+    lab_keys = {normalize(text) for text, _ in lab_unique}
+    test_excluded = sum(normalize(text) in lab_keys for text, _ in test_rows)
+    test_rows = [row for row in test_rows if normalize(row[0]) not in lab_keys]
+    if not test_rows:
+        raise ValueError("Lab corpus overlaps every external test row")
+
+    train_texts, train_labels = zip(*combined_rows)
+    test_texts, test_labels = zip(*test_rows)
+    model = build_pipeline().fit(train_texts, train_labels)
+    predictions = model.predict(test_texts)
+    probabilities = model.predict_proba(test_texts)
+    test_labels = np.asarray(test_labels)
+    per_class = per_class_metrics(test_labels, predictions)
+    benign = test_labels == "benign"
+    attack = (probabilities[:, list(model.classes_).index("sqli")] +
+              probabilities[:, list(model.classes_).index("xss")])
+    binary_true = ~benign
+    binary_pred = attack >= THRESHOLD
+
+    import io
+    lab_csv = io.StringIO(newline="")
+    writer = csv.writer(lab_csv, lineterminator="\n")
+    writer.writerow(["text", "label", "family"])
+    writer.writerows(row_values(corpus_root))
+    lab_source_hash = hashlib.sha256(lab_csv.getvalue().encode("utf-8")).hexdigest()
+    hashes = {
+        "http_train_csv": hashlib.sha256(Path(train_csv).read_bytes()).hexdigest(),
+        "http_test_csv": hashlib.sha256(Path(test_csv).read_bytes()).hexdigest(),
+        "lab_corpus_rows_csv": lab_source_hash,
+    }
+    lab_files = {}
+    corpus_root = Path(corpus_root) if corpus_root else default_corpus_root()
+    for path in sorted(corpus_root.glob("*/cases.json")):
+        lab_files[str(path)] = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    metrics = {
+        "model_version": "lr-tfidf-3cls-1.3", "sklearn_version": sklearn.__version__,
+        "dataset": {
+            "sources": ["Morzeux/HttpParamsDataset", "dataset/bypass via build_dataset.row_values"],
+            "external_train_class_counts": {label: sum(y == label for _, y in external_rows) for label in CLASS_ORDER},
+            "lab_class_counts": {label: sum(y == label for _, y in lab_rows) for label in CLASS_ORDER},
+            "combined_train_class_counts": {label: sum(y == label for _, y in combined_rows) for label in CLASS_ORDER},
+            "train_rows_used": len(combined_rows),
+            "external_test_class_counts": {label: int(np.sum(test_labels == label)) for label in CLASS_ORDER},
+            "external_test_rows_used": len(test_rows),
+            "dedup": {
+                "normalization": "strip + lowercase",
+                "external_train_internal_duplicates": external_internal_dups,
+                "lab_internal_duplicates": lab_internal_dups,
+                "lab_rows_deduplicated_against_external_train": lab_cross_dups,
+                "external_test_rows_excluded_for_lab_overlap": test_excluded,
+            },
+            "sha256": hashes,
+            "lab_corpus_file_sha256": lab_files,
+        },
+        "features": "TfidfVectorizer char_wb ngram_range=(1,2), sublinear_tf=True, min_df=1",
+        "model": "LogisticRegression C=2.0, max_iter=2000", "threshold": THRESHOLD,
+        "evaluation": {"accuracy": float(accuracy_score(test_labels, predictions)),
+                       "macro_f1": float(f1_score(test_labels, predictions, labels=CLASS_ORDER, average="macro", zero_division=0)),
+                       "per_class": per_class, "confusion_labels": CLASS_ORDER,
+                       "confusion_matrix": confusion_matrix(test_labels, predictions, labels=CLASS_ORDER).tolist(),
+                       "benign_to_sqli_fpr": float(np.mean(predictions[benign] == "sqli")),
+                       "benign_to_xss_fpr": float(np.mean(predictions[benign] == "xss")),
+                       "binary_attack_f1": float(f1_score(binary_true, binary_pred, zero_division=0))},
+        "evaluation_note": "Combined training; external split is payload-level. The original external test split is used only for reporting, with lab-overlapping payloads excluded to prevent leakage; it is not used for model selection.",
+    }
+    output = Path(out_dir)
+    output.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, output / "model.joblib", compress=3)
+    (output / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+    return metrics
 
 
 def _model_dir(override=None):
@@ -316,8 +490,22 @@ def main():
     parser.add_argument("--out-dir", default=None)
     parser.add_argument("--corpus-root", default=None)
     parser.add_argument("--baseline-dir", default=None)
+    parser.add_argument("--external-train", default=None)
+    parser.add_argument("--external-test", default=None)
+    parser.add_argument("--external-lab", action="store_true")
     args = parser.parse_args()
-    metrics = train_and_save(args.out_dir, args.corpus_root, args.baseline_dir)
+    if bool(args.external_train) != bool(args.external_test):
+        parser.error("--external-train and --external-test must be used together")
+    if args.external_lab and not args.external_train:
+        parser.error("--external-lab requires --external-train and --external-test")
+    metrics = (train_combined_external_dataset(args.external_train, args.external_test,
+                                                args.corpus_root,
+                                                args.out_dir or "artifacts/v1.3")
+               if args.external_lab else
+               train_external_dataset(args.external_train, args.external_test,
+                                      args.out_dir or "artifacts/v1.2")
+               if args.external_train else
+               train_and_save(args.out_dir, args.corpus_root, args.baseline_dir))
     print(json.dumps(metrics, ensure_ascii=False))
 
 
