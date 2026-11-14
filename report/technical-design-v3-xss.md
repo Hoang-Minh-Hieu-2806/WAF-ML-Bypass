@@ -860,11 +860,16 @@ sau khi R7 xong và pending list empty; merge dev→main không chạy trước 
    xong sau RUN-A/B — đúng thứ tự, không phụ thuộc vòng)**.
 2. Matrix đầy đủ: 3 config × 3 PL × (SQLi + XSS), `incomplete=0`,
    `control_invalid_total=0` mỗi run.
-3. Có ≥1 case `true_bypass` **SQLi** (decode-double — theo kế hoạch gốc) và/hoặc
-   ≥1 case `true_bypass_xss` với **WAF-path browser evidence `executed` của đúng
-   bộ (case, config, PL)** (§7.3) — nếu không đạt, kết quả âm phải được phân
-   tích cơ chế (kết quả âm có giá trị, nhưng phải loại trừ
-   execution_unverified).
+3. Có ≥1 case true bypass thuộc nhóm kỹ thuật trong phạm vi thực nghiệm
+   (bao gồm Double Encoding hoặc HPP) với đầy đủ bằng chứng WAF-path:
+    payload qua WAF không bị chặn + app tạo effect quan sát/xác minh được
+    (đối với XSS, effect phải là bằng chứng thực thi trên browser — không chỉ
+    phản hồi HTTP chứa payload) +
+    evidence liên kết request → WAF → app. `pass_without_effect` không tính.
+   `hpp-mal-004` được tính nếu đủ 3 điều kiện
+   (amendment 14/11/2026 — đề xuất chủ dự án, chờ ký nhóm; đối chiếu
+   `results/gates/HPP-arithmetic-bypass-20261113.md`). Kết quả âm còn lại
+   phải được phân tích cơ chế và loại trừ `execution_unverified`.
 4. Bảng per-vuln × per-technique × per-config có số thật từ run.
 5. Model v1.0 artifact nguyên vẹn; v1.1 đạt tiêu chí §9.5 hoặc rollback có ghi.
 6. Báo cáo + slide có: detection/blocking/effect tách bạch, rule hotlist,

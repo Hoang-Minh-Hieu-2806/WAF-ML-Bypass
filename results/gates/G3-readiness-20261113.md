@@ -36,3 +36,15 @@ On the unchanged lab corpus, RUN-A had no new standalone-ML block-decision chang
 ## Approval boundary
 
 This is a technical readiness audit, not a G3 signature. Do not merge `dev` to `main` or tag a release from this checklist. The group must review the R7 correction, final tables/report/demo, and decide how to resolve the explicit G3 positive-bypass requirement against the measured negative result.
+
+## Addendum (2026-11-14): proposed §6.3 amendment + hpp-mal-004 verification
+
+The project owner proposed amending the G3 positive-bypass criterion (§6 item 3 of `report/execution-plan-v3.1-2-tuan.md`, mirrored in §17 item 3 of `report/technical-design-v3-xss.md`): a true bypass counts when it belongs to any technique in the experimental scope (including Double Encoding or HPP) and has full WAF-path evidence — payload passes the WAF unblocked, the application produces an observable and verifiable attack effect, and the evidence links request → WAF response → application result. `pass_without_effect` cases never count. The wording is recorded in both documents and awaits group ratification at the G3 review.
+
+Verification of `hpp-mal-004` against the three amended conditions, from the recorded evidence ([HPP-arithmetic-bypass](HPP-arithmetic-bypass-20261113.md), runs `20261113T102615Z-8f0c59cf` and `20261113T102710Z-e58e1432`):
+
+1. **Passes WAF unblocked** — CRS-only and hybrid allow it at PL1–PL2, ML-only at PL1–PL3, with `detected=false` on every allowed path.
+2. **Observable application effect** — `semantic_effect=true` on every allowed path: MySQL evaluates `WHERE id = 1+1` and returns row 2 instead of the reference row 1, with no SQL error.
+3. **Linked evidence** — results.json, per-PL audit JSON, app JSON and metadata per run ID, joined by correlation ID.
+
+All three conditions are met per recorded evidence; under the amended wording the case qualifies. Honesty note for the report: the single-parameter control (same file) proves the mechanism is the CRS arithmetic-tautology blind spot on `1+1`, not HPP parameter duplication — the technique label in the frozen corpus stays `hpp` (hashes locked), so the report must describe the cause accurately (proposed option (a) relabel-for-report, awaiting the group decision). Overall status remains **NOT READY / not signed**: pending group ratification and review of the v1.4 37-case matrix ([candidate matrix](../tables/g3-candidate-metrics-v1.4-37case-20261114.md)), plus the final report/slides/demo.

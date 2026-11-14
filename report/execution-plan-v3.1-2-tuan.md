@@ -176,9 +176,22 @@ Tương ứng §17 v3.1, kiểm mục theo mục:
 1. R0–R13 pass; pending-browser list **empty**.
 2. Matrix đầy đủ 3 config × 3 PL × (SQLi + XSS); `incomplete=0`;
    `control_invalid_total=0` mỗi run.
-3. ≥1 case `true_bypass` SQLi (decode-double) và/hoặc ≥1 `true_bypass_xss` với
-   **WAF-path evidence `executed`** của đúng (case, config, PL) — kết quả âm
-   phải được phân tích cơ chế và loại trừ `execution_unverified`.
+3. ≥1 trường hợp true bypass thuộc một trong các nhóm kỹ thuật được phạm vi
+   thực nghiệm cho phép (bao gồm Double Encoding hoặc HTTP Parameter
+   Pollution — HPP), với đầy đủ bằng chứng WAF-path. Một trường hợp chỉ được
+   công nhận true bypass khi: (a) payload đi qua WAF mà không bị chặn;
+   (b) ứng dụng xử lý và tạo ra effect tấn công quan sát được, xác minh được
+   (đối với XSS, effect phải là bằng chứng thực thi trên browser — không chỉ
+   phản hồi HTTP chứa payload);
+   (c) evidence liên kết được request, phản hồi WAF và kết quả xử lý tại
+   ứng dụng. Các trường hợp `pass_without_effect` không được tính true bypass.
+   `hpp-mal-004` được tính nếu đáp ứng đủ ba điều kiện trên.
+   *(Amendment 14/11/2026 — đề xuất chủ dự án, chờ ký nhóm tại G3 review.
+   Sửa tiêu chí gốc "SQLi decode-double và/hoặc XSS" vì kết quả thực nghiệm
+   37-case, bảng v1.4 14/11, cho thấy double-encoding chỉ đạt
+   `pass_without_effect`; bypass
+   thật duy nhất là `hpp-mal-004`, đã xác minh đủ 3 điều kiện trong
+   `results/gates/HPP-arithmetic-bypass-20261113.md`.)*
 4. Bảng per-vuln × per-technique × per-config có số thật từ run.
 5. Model v1.0 artifact nguyên vẹn; v1.1 đạt A1–A7 **hoặc** rollback có ghi lý do
    từng tiêu chí fail.
