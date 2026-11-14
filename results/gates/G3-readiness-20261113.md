@@ -21,6 +21,12 @@
 - The candidate hybrid path blocks all malicious SQLi and XSS case-rounds. Across the post-G2 candidate summaries, `true_bypasses=0`, `execution_unverified=0`, `incomplete=0`, and `control_invalid_total=0`.
 - The later targeted HPP run confirms a different, arithmetic SQLi bypass. It supersedes the prior zero-bypass statement only for the expanded 37-case corpus; it does not change the recorded outcomes of the earlier candidates.
 
+## Addendum (2026-11-14): combined-training candidate v1.3
+
+The v1.3 candidate combines the mapped HttpParamsDataset training split with the unchanged 427-row lab dataset. Its evaluation protocol, dedup counts, source/artifact hashes, external holdout metrics, and 37-case integration evidence are recorded in [the v1.3 results table](../tables/v1.3-combined-httpparams-lab-20261114.md). Final RUN-A `20261114T051016Z-4b409c79` and RUN-B `20261114T051806Z-f6f69f39` each completed 111 rows with no pending browser checks, incomplete rows, or control-invalid rows, using source commit `89b0d5b`.
+
+Compared with locked v1.1, v1.3 introduced no new per-case CRS/standalone-ML miss or false positive in RUN-A, and RUN-B hybrid decisions and final HTTP/effect outcomes match across all 111 rows. The six v1.2 malicious pass-throughs and one benign false positive are resolved back to v1.1 behavior. These six pass-throughs had no demonstrated application/browser effect in v1.2. `hpp-mal-004` remains a true ML-only bypass (PL1–PL3); hybrid reaches it at PL1–PL2 and CRS blocks it at PL3. The candidate was not promoted; the shared service was restored to v1.1 with CRS PL2. The pre-existing G3 positive-bypass wording question and report/demo/review work remain open, so this addendum does not change the **NOT READY / not signed** status.
+
 ## Approval boundary
 
 This is a technical readiness audit, not a G3 signature. Do not merge `dev` to `main` or tag a release from this checklist. The group must review the R7 correction, final tables/report/demo, and decide how to resolve the explicit G3 positive-bypass requirement against the measured negative result.
