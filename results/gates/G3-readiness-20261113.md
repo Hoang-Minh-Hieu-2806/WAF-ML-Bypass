@@ -27,6 +27,12 @@ The v1.3 candidate combines the mapped HttpParamsDataset training split with the
 
 Compared with locked v1.1, v1.3 introduced no new per-case CRS/standalone-ML miss or false positive in RUN-A, and RUN-B hybrid decisions and final HTTP/effect outcomes match across all 111 rows. The six v1.2 malicious pass-throughs and one benign false positive are resolved back to v1.1 behavior. These six pass-throughs had no demonstrated application/browser effect in v1.2. `hpp-mal-004` remains a true ML-only bypass (PL1–PL3); hybrid reaches it at PL1–PL2 and CRS blocks it at PL3. The candidate was not promoted; the shared service was restored to v1.1 with CRS PL2. The pre-existing G3 positive-bypass wording question and report/demo/review work remain open, so this addendum does not change the **NOT READY / not signed** status.
 
+## Addendum (2026-11-14): XSS-data candidate v1.4
+
+The v1.4 candidate adds a bounded sample from Mendeley XSS dataset v2 to the unchanged v1.3 training sources. Dataset quality notes, sampling/dedup protocol, hashes, external metrics, and full 37-case comparisons are recorded in [the v1.4 results table](../tables/v1.4-xss-augmentation-20261114.md). RUN-A `20261114T112812Z-1f47c60b` and RUN-B `20261114T113212Z-ee819911` completed 111 rows each; browser pending, incomplete, and control-invalid counts are zero. The HttpParams holdout XSS recall rose from 172/177 to 173/177, and the new neutralized-payload holdout scored 4,969/5,000 XSS recall with 1/5,000 benign false positives.
+
+On the unchanged lab corpus, RUN-A had no new standalone-ML block-decision change versus v1.3 and no CRS/application-effect outcome change versus locked v1.1; three `pd-mal-003` class labels changed to benign while the attack score still blocked all three requests. RUN-B hybrid decisions and final effects match v1.1 and v1.3. `hpp-mal-004` remains a true standalone-ML bypass at every PL and a hybrid bypass at PL1–PL2. The dataset is safety-neutralized and lacks family/source metadata, so its strong payload-holdout score does not establish executable-XSS detection or satisfy the open G3 §6.3 wording. v1.4 is not promoted; the shared service is restored to v1.1 with CRS PL2. G3 remains **NOT READY / not signed**.
+
 ## Approval boundary
 
 This is a technical readiness audit, not a G3 signature. Do not merge `dev` to `main` or tag a release from this checklist. The group must review the R7 correction, final tables/report/demo, and decide how to resolve the explicit G3 positive-bypass requirement against the measured negative result.
