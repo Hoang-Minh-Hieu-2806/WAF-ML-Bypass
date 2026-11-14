@@ -1,0 +1,271 @@
+{
+  "model_version": "lr-tfidf-3cls-1.5.1",
+  "sklearn_version": "1.7.1",
+  "training_mode": "candidate",
+  "python_version": "3.13.18",
+  "operating_system": "Linux-6.18.55+-x86_64-with-glibc2.39",
+  "architecture": "x86_64",
+  "numpy_version": "2.1.3",
+  "scipy_version": "1.16.3",
+  "joblib_version": "1.6.0",
+  "threadpoolctl_version": "3.7.0",
+  "sklearn_wheel_sha256": "13679981fdaebc10cc4c13c43344416a86fcbc61449cb3e6517e1df9d12c8309",
+  "sklearn_wheel_tags": [
+    "cp313-cp313-manylinux2014_x86_64",
+    "cp313-cp313-manylinux_2_17_x86_64"
+  ],
+  "pilot": {
+    "enabled": false,
+    "fit_rows_target": 0,
+    "rows_excluded": 0
+  },
+  "dataset": {
+    "sources": [
+      "Morzeux/HttpParamsDataset",
+      "dataset/bypass (lab_corpus_rows.csv)",
+      "Mendeley XSS dataset DOI 10.17632/py6cnbgdh2.2 (full file)"
+    ],
+    "http_train_class_counts": {
+      "benign": 12870,
+      "sqli": 7235,
+      "xss": 355
+    },
+    "lab_class_counts": {
+      "sqli": 138,
+      "benign": 222,
+      "xss": 54
+    },
+    "mendeley_rows_seen": 1831254,
+    "mendeley_label_counts": {
+      "0": 666484,
+      "1": 1164770
+    },
+    "mendeley_unique_nonempty_rows": 1831154,
+    "mendeley_train_rows": 1464719,
+    "mendeley_holdout_rows": 365297,
+    "mendeley_holdout_class_counts": {
+      "xss": 232145,
+      "benign": 133152
+    },
+    "fit_class_counts": {
+      "benign": 545724,
+      "sqli": 7372,
+      "xss": 932453
+    },
+    "fit_rows": 1485549,
+    "fit_rows_by_source": {
+      "httpparams_and_lab": 20830,
+      "mendeley_xss": 1464719
+    },
+    "sample_weight_sums": {
+      "httpparams_and_lab": 20830.0,
+      "mendeley_xss": 12287.999999999998
+    },
+    "mendeley_effective_weight_target": 12288,
+    "scikit_learn_wheel_sha256": "13679981fdaebc10cc4c13c43344416a86fcbc61449cb3e6517e1df9d12c8309",
+    "http_test_rows_clean": 10211,
+    "dedup": {
+      "normalization": "strip + lowercase",
+      "http_train_internal": 0,
+      "http_test_internal": 0,
+      "lab_internal": 13,
+      "mendeley_duplicates": 97,
+      "mendeley_conflicting_duplicate_labels": 0,
+      "mendeley_empty_payload_rows": 3,
+      "mendeley_bad_label_rows": 0,
+      "mendeley_overlap_excluded_both_splits": 1138,
+      "combined_fit_duplicates_removed": 0,
+      "http_test_excluded_for_lab_overlap": 17
+    },
+    "split": {
+      "method": "deterministic SHA-256 payload hash; first-byte buckets < 51/256 (~19.9%) held out; no reservoir quotas (full file)",
+      "holdout_bucket_cutoff": 51,
+      "pilot_seed": 20261115
+    },
+    "sha256": {
+      "xss_dataset.csv": "81648bab21a3f2859d50fa679fa2b34f54486b920c183460a3efcbbbcc43af4c",
+      "payload_train.csv": "dfa6e59c87b2bafc485c9cb14d37e3f86607d180e5a22e7c46dae6d3d1dd6a16",
+      "payload_test.csv": "d8015e256ce4499c8ac7a8be8dd25de6487cf018601edf1a03a408a2c8f0e39d",
+      "lab_corpus_rows.csv": "02ab25f40f42eec43ffd392566e0eacd3da77c9366ba08b9e1b2c4c887c8281a"
+    }
+  },
+  "features": "TfidfVectorizer char_wb ngram_range=(1,2), sublinear_tf=True, min_df=1",
+  "model": "LogisticRegression C=2.0, max_iter=2000, class_weight=None; one source sample_weight vector passed once",
+  "threshold": 0.5,
+  "fit_seconds": 175.65550541877747,
+  "peak_rss_mb_after_fit": 4152.90625,
+  "peak_rss_mb": 4152.90625,
+  "evaluation": {
+    "mendeley_payload_holdout": {
+      "rows": 365297,
+      "class_counts": {
+        "xss": 232145,
+        "benign": 133152
+      },
+      "accuracy": 0.9961894020481964,
+      "macro_f1": 0.99589625798154,
+      "weighted_f1": 0.9961934854619056,
+      "macro_f1_labels": [
+        "benign",
+        "xss"
+      ],
+      "per_class": {
+        "benign": {
+          "precision": 0.989770429404068,
+          "recall": 0.9998798365777457,
+          "f1": 0.9947994500567876,
+          "support": 133152
+        },
+        "sqli": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0
+        },
+        "xss": {
+          "precision": 0.9999306714041207,
+          "recall": 0.9940726700984298,
+          "f1": 0.9969930659062926,
+          "support": 232145
+        }
+      },
+      "confusion_labels": [
+        "benign",
+        "sqli",
+        "xss"
+      ],
+      "confusion_matrix": [
+        [
+          133136,
+          0,
+          16
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          1376,
+          0,
+          230769
+        ]
+      ],
+      "benign_to_sqli_fpr": 0.0,
+      "benign_to_xss_fpr": 0.0001201634222542658,
+      "binary_attack_policy": {
+        "policy": "P(sqli) + P(xss) >= threshold",
+        "threshold": 0.5,
+        "confusion_labels": [
+          "benign",
+          "malicious"
+        ],
+        "confusion_matrix": [
+          [
+            133132,
+            20
+          ],
+          [
+            1376,
+            230769
+          ]
+        ],
+        "precision": 0.9999133407571418,
+        "recall": 0.9940726700984298,
+        "f1": 0.9969844513472763,
+        "roc_auc": 0.9997542342394721,
+        "pr_auc_average_precision": 0.9998635980759991
+      }
+    },
+    "httpparams_external_test": {
+      "rows": 10211,
+      "class_counts": {
+        "benign": 6417,
+        "sqli": 3617,
+        "xss": 177
+      },
+      "accuracy": 0.9993144647928704,
+      "macro_f1": 0.9940250788621591,
+      "weighted_f1": 0.9993095793443887,
+      "macro_f1_labels": [
+        "benign",
+        "sqli",
+        "xss"
+      ],
+      "per_class": {
+        "benign": {
+          "precision": 0.9989103362391034,
+          "recall": 1.0,
+          "f1": 0.9994548711159567,
+          "support": 6417
+        },
+        "sqli": {
+          "precision": 1.0,
+          "recall": 0.9997235277854576,
+          "f1": 0.9998617447808654,
+          "support": 3617
+        },
+        "xss": {
+          "precision": 1.0,
+          "recall": 0.9661016949152542,
+          "f1": 0.9827586206896551,
+          "support": 177
+        }
+      },
+      "confusion_labels": [
+        "benign",
+        "sqli",
+        "xss"
+      ],
+      "confusion_matrix": [
+        [
+          6417,
+          0,
+          0
+        ],
+        [
+          1,
+          3616,
+          0
+        ],
+        [
+          6,
+          0,
+          171
+        ]
+      ],
+      "benign_to_sqli_fpr": 0.0,
+      "benign_to_xss_fpr": 0.0,
+      "binary_attack_policy": {
+        "policy": "P(sqli) + P(xss) >= threshold",
+        "threshold": 0.5,
+        "confusion_labels": [
+          "benign",
+          "malicious"
+        ],
+        "confusion_matrix": [
+          [
+            6417,
+            0
+          ],
+          [
+            6,
+            3788
+          ]
+        ],
+        "precision": 1.0,
+        "recall": 0.9984185556141276,
+        "f1": 0.9992086520706938,
+        "roc_auc": 0.9999944960379277,
+        "pr_auc_average_precision": 0.9999908541734304
+      }
+    }
+  },
+  "evaluation_note": "v1.5.1 uses the FULL Mendeley XSS source with sample weights capped to the v1.4 effective contribution (12,288 Mendeley rows); HttpParams/lab rows retain weight 1. The split is ~20% payload-level with SHA-256 buckets < 51/256 and no quotas. Source payloads are safety-neutralized and lack family/source metadata; the holdout is payload-level, not family-disjoint. Results measure text classification, not executable XSS. Candidate only: compare with v1.4/v1.3/v1.1 and re-run the 37-case lab (RUN-A, RUN-B, PL1-3) before any promotion. Promotion requires no new lab miss or false positive and A1-A7 per-class thresholds.",
+  "artifact_reload_selfcheck": true,
+  "model_classes": [
+    "benign",
+    "sqli",
+    "xss"
+  ]
+}

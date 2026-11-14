@@ -1,0 +1,24 @@
+{
+  "id": "minhiuwu/v15-source-weighted",
+  "title": "v15-source-weighted",
+  "code_file": "v1_5_1_train.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_tpu": false,
+  "enable_internet": false,
+  "keywords": [
+    "waf",
+    "xss",
+    "tfidf",
+    "source-weighted"
+  ],
+  "dataset_sources": [
+    "minhiuwu/waf-t03-v15-inputs",
+    "minhiuwu/scikit-learn-1-7-1-cp313-wheel"
+  ],
+  "kernel_sources": [],
+  "competition_sources": [],
+  "model_sources": []
+}
