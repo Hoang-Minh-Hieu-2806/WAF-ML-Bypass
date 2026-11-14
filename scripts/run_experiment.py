@@ -832,7 +832,8 @@ def main():
                          "scripts/run_experiment.py", "scripts/sweep_thresholds.py",
                          "docker/waf-ml/Dockerfile", "waf-ml/requirements.txt",
                          "waf-ml/app.py", "waf-ml/server.py", "waf-ml/train.py",
-                         "waf-ml/build_dataset.py",
+                         "waf-ml/build_dataset.py", "waf-ml/train_xss_augmented.py",
+                         "waf-ml/test_train_xss_augmented.py",
                          "dataset/bypass/README.md", "dataset/bypass/validate_corpus.py",
                          "scripts/verify_xss_execution.py")},
     }
