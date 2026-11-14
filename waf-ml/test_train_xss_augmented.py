@@ -27,6 +27,10 @@ class XssAugmentationTests(unittest.TestCase):
                 writer.writerows([("benign test", "norm"),
                                   ("sqli test", "sqli"),
                                   ("xss test", "xss")])
+                http_overlap = next(
+                    f"http holdout overlap {i}" for i in range(1000)
+                    if hashlib.sha256(f"http holdout overlap {i}".encode()).digest()[0] >= 51)
+                writer.writerow([http_overlap, "norm"])
             with xss_csv.open("w", newline="", encoding="utf-8") as stream:
                 writer = csv.writer(stream)
                 writer.writerow(["Query", "Label"])
@@ -38,6 +42,7 @@ class XssAugmentationTests(unittest.TestCase):
                     f"lab overlap {i}" for i in range(1000)
                     if hashlib.sha256(f"lab overlap {i}".encode()).digest()[0] >= 51)
                 writer.writerow([overlap_text, 0])
+                writer.writerow([http_overlap, 0])
             with mock.patch.object(augmented, "TRAIN_QUOTAS", {"1": 20, "0": 20}), \
                  mock.patch.object(augmented, "TEST_QUOTAS", {"1": 10, "0": 10}), \
                  mock.patch.object(augmented, "TEST_BUCKET_CUTOFF", 128), \
@@ -51,7 +56,7 @@ class XssAugmentationTests(unittest.TestCase):
 
         self.assertEqual(metrics["model_version"], "lr-tfidf-3cls-1.4")
         self.assertEqual(metrics["dataset"]["dedup"]["xss_source_duplicates"], 1)
-        self.assertEqual(metrics["dataset"]["dedup"]["xss_source_overlaps_excluded_from_train"], 1)
+        self.assertEqual(metrics["dataset"]["dedup"]["xss_source_overlaps_excluded_from_train"], 2)
         self.assertEqual(metrics["dataset"]["xss_source_training_sample_counts"],
                          {"0": 20, "1": 20})
         self.assertEqual(metrics["dataset"]["xss_source_holdout_sample_counts"],
