@@ -49,6 +49,12 @@ Verification of `hpp-mal-004` against the three amended conditions, from the rec
 
 All three conditions are met per recorded evidence; under the amended wording the case qualifies. Honesty note for the report: the single-parameter control (same file) proves the mechanism is the CRS arithmetic-tautology blind spot on `1+1`, not HPP parameter duplication — the technique label in the frozen corpus stays `hpp` (hashes locked), so the report must describe the cause accurately (decided option (a) relabel-for-report, see decision record below).
 
+## Addendum (2026-11-15): v1.4 acceptance gate audit
+
+The pinned-version benign HTML check passed at 28/30 (93.33%) using the unchanged v1.4 artifact (A7 threshold ≥90%). It had two false positives: `<code>SELECT</code>` (attack score 0.5508) and `data-id='42'` (0.5040). Runtime: Python 3.13.2 / scikit-learn 1.7.1. Full metrics and hashes are in [v1.4 acceptance audit](v1.4-acceptance-audit-20261115.md), with raw JSON at `results/raw/verification/v1.4-acceptance-20261115/a7-benign-html.json`.
+
+OOF/group metrics for the combined v1.4 dataset remain **NOT EVALUATED** because HttpParamsDataset and Mendeley inputs do not provide family labels. A random row split would not satisfy the family-disjoint protocol; the v1.1 OOF result is not transferable to v1.4. Therefore v1.4 promotion is still not cleared; v1.1 remains the serving model unless the group explicitly accepts this limitation or supplies a separately versioned, defensibly grouped dataset.
+
 ## G3 decision record (2026-11-15)
 
 Recorded at the project owner's explicit request. Per-decision outcome:

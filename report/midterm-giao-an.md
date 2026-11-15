@@ -374,7 +374,7 @@ kết quả phủ định có giá trị đúng như bảng trên dự đoán) v
 
 - *"Vì sao CRS bắt được SQLi này — là khớp chuỗi không?"* → Không: `942100` là libinjection (SQL tokenization), `949110` là ngưỡng anomaly tổng hợp.
 - *"Request qua WAF không để lộ gì?"* → DB không publish port, HTTP chỉ bind `127.0.0.1`, seed user giả trong lab, không có dữ liệu thật.
-- *"Có dùng WAF-A-MoLE / sqlmap không?"* → Có, chỉ nhắm mục tiêu lab do nhóm kiểm soát (`scripts/requirements-attack.txt`, không cài vào image compose).
+- *"Có dùng WAF-A-MoLE / sqlmap không?"* → `wafw00f` + `sqlmap --tamper` đã chạy trên lab ngày 15/11, log tại `results/raw/sqlmap/` và bảng tổng hợp [tools-corroboration-20261115](../results/tables/tools-corroboration-20261115.md) (chỉ nhắm mục tiêu lab do nhóm kiểm soát). WAF-A-MoLE chưa chạy — không nhận là nguồn sinh kết quả.
 - *"PL3 FPR BEN-PRODUCT là chuyện gì?"* → Rule `932350` match **tên tham số** `id` (trùng tên lệnh Unix `id`), không nâng giá trị `1`. FPR 33% → hardening cần exception hẹp theo endpoint/param, có evidence.
 - *"ML đã chặn request chưa?"* → **Có, từ 26/10/2026** — enforcement proxy trên
   `:8082` chấm mọi route ứng dụng: `score ≥ ML_THRESHOLD` (0.5 mặc định) → 403
