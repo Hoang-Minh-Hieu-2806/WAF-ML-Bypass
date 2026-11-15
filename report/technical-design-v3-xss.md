@@ -867,8 +867,9 @@ sau khi R7 xong và pending list empty; merge dev→main không chạy trước 
     phản hồi HTTP chứa payload) +
     evidence liên kết request → WAF → app. `pass_without_effect` không tính.
    `hpp-mal-004` được tính nếu đủ 3 điều kiện
-   (amendment 14/11/2026 — đề xuất chủ dự án, chờ ký nhóm; đối chiếu
-   `results/gates/HPP-arithmetic-bypass-20261113.md`). Kết quả âm còn lại
+   (amendment 14/11/2026, được duyệt bởi chủ dự án ngày 15/11/2026 —
+   đối chiếu `results/gates/HPP-arithmetic-bypass-20261113.md` và decision
+   record trong `results/gates/G3-readiness-20261113.md`). Kết quả âm còn lại
    phải được phân tích cơ chế và loại trừ `execution_unverified`.
 4. Bảng per-vuln × per-technique × per-config có số thật từ run.
 5. Model v1.0 artifact nguyên vẹn; v1.1 đạt tiêu chí §9.5 hoặc rollback có ghi.

@@ -186,7 +186,9 @@ Tương ứng §17 v3.1, kiểm mục theo mục:
    (c) evidence liên kết được request, phản hồi WAF và kết quả xử lý tại
    ứng dụng. Các trường hợp `pass_without_effect` không được tính true bypass.
    `hpp-mal-004` được tính nếu đáp ứng đủ ba điều kiện trên.
-   *(Amendment 14/11/2026 — đề xuất chủ dự án, chờ ký nhóm tại G3 review.
+   *(Amendment 14/11/2026 — đề xuất chủ dự án, được duyệt bởi chủ dự án
+   ngày 15/11/2026 (option (a), xem decision record trong
+   `results/gates/G3-readiness-20261113.md`).
    Sửa tiêu chí gốc "SQLi decode-double và/hoặc XSS" vì kết quả thực nghiệm
    37-case, bảng v1.4 14/11, cho thấy double-encoding chỉ đạt
    `pass_without_effect`; bypass

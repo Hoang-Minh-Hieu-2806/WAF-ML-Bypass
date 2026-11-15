@@ -1,6 +1,6 @@
 # G3 readiness audit (2026-11-13)
 
-**Status: NOT READY; G3 is not signed.** This audit applies the G3 Definition of Done in `report/execution-plan-v3.1-2-tuan.md` §6. G2 remains signed as recorded in `R13-checklist-20261112.md`; the R7 replay correction and [HPP arithmetic bypass](HPP-arithmetic-bypass-20261113.md) are post-sign-off addenda for the next group review.
+**Status: SIGNED (owner decision, 2026-11-15 — see decision record at the end of this file).** This audit applies the G3 Definition of Done in `report/execution-plan-v3.1-2-tuan.md` §6. G2 remains signed as recorded in `R13-checklist-20261112.md`; the R7 replay correction and [HPP arithmetic bypass](HPP-arithmetic-bypass-20261113.md) are post-sign-off addenda resolved by the 15/11 decision record. Remaining before `dev`→`main` merge: final report, slides and demo.
 
 **Addendum (2026-11-13, evening):** official 37-case runs are recorded and hash-locked in [run-audit-37case](run-audit-37case-20261113.md) — RUN-A `20261113T105850Z-f4deea31` (direct) and RUN-B `20261113T110057Z-5a65730f` (hybrid); 111 rows each, incomplete/control-invalid/pending all zero; 108 legacy case-rounds identical to the post-G2 36-case candidates. Model v1.1 is now protected against silent retrain (`ML_FORCE_TRAIN` guard, commit `e6509f2`); the rebuilt image re-ran 12 tests OK with unchanged artifact hashes. The 37-case metrics table is [g3-candidate-metrics-37case](../tables/g3-candidate-metrics-37case-20261113.md).
 
@@ -39,7 +39,7 @@ This is a technical readiness audit, not a G3 signature. Do not merge `dev` to `
 
 ## Addendum (2026-11-14): proposed §6.3 amendment + hpp-mal-004 verification
 
-The project owner proposed amending the G3 positive-bypass criterion (§6 item 3 of `report/execution-plan-v3.1-2-tuan.md`, mirrored in §17 item 3 of `report/technical-design-v3-xss.md`): a true bypass counts when it belongs to any technique in the experimental scope (including Double Encoding or HPP) and has full WAF-path evidence — payload passes the WAF unblocked, the application produces an observable and verifiable attack effect, and the evidence links request → WAF response → application result. `pass_without_effect` cases never count. The wording is recorded in both documents and awaits group ratification at the G3 review.
+The project owner proposed amending the G3 positive-bypass criterion (§6 item 3 of `report/execution-plan-v3.1-2-tuan.md`, mirrored in §17 item 3 of `report/technical-design-v3-xss.md`): a true bypass counts when it belongs to any technique in the experimental scope (including Double Encoding or HPP) and has full WAF-path evidence — payload passes the WAF unblocked, the application produces an observable and verifiable attack effect, and the evidence links request → WAF response → application result. `pass_without_effect` cases never count. The wording is recorded in both documents and was approved by the project owner on 2026-11-15 (see decision record below).
 
 Verification of `hpp-mal-004` against the three amended conditions, from the recorded evidence ([HPP-arithmetic-bypass](HPP-arithmetic-bypass-20261113.md), runs `20261113T102615Z-8f0c59cf` and `20261113T102710Z-e58e1432`):
 
@@ -47,4 +47,14 @@ Verification of `hpp-mal-004` against the three amended conditions, from the rec
 2. **Observable application effect** — `semantic_effect=true` on every allowed path: MySQL evaluates `WHERE id = 1+1` and returns row 2 instead of the reference row 1, with no SQL error.
 3. **Linked evidence** — results.json, per-PL audit JSON, app JSON and metadata per run ID, joined by correlation ID.
 
-All three conditions are met per recorded evidence; under the amended wording the case qualifies. Honesty note for the report: the single-parameter control (same file) proves the mechanism is the CRS arithmetic-tautology blind spot on `1+1`, not HPP parameter duplication — the technique label in the frozen corpus stays `hpp` (hashes locked), so the report must describe the cause accurately (proposed option (a) relabel-for-report, awaiting the group decision). Overall status remains **NOT READY / not signed**: pending group ratification and review of the v1.4 37-case matrix ([candidate matrix](../tables/g3-candidate-metrics-v1.4-37case-20261114.md)), plus the final report/slides/demo.
+All three conditions are met per recorded evidence; under the amended wording the case qualifies. Honesty note for the report: the single-parameter control (same file) proves the mechanism is the CRS arithmetic-tautology blind spot on `1+1`, not HPP parameter duplication — the technique label in the frozen corpus stays `hpp` (hashes locked), so the report must describe the cause accurately (decided option (a) relabel-for-report, see decision record below).
+
+## G3 decision record (2026-11-15)
+
+Recorded at the project owner's explicit request. Per-decision outcome:
+
+1. **§6.3 amendment: APPROVED (option (a))** — the positive-bypass criterion is amended as written in both plan documents; `hpp-mal-004` counts as the G3 true-bypass case (verified against runs `20261113T102615Z-8f0c59cf` / `20261113T102710Z-e58e1432` and reproduced unchanged in the [v1.4 37-case matrix](../tables/g3-candidate-metrics-v1.4-37case-20261114.md)).
+2. **Technique description: option (a)** — the report describes the mechanism as a CRS arithmetic-tautology blind spot on `1+1` (the payload happens to use HPP ordering). Corpus labels and hashes stay frozen; no corpus change.
+3. **Model status: `lr-tfidf-3cls-1.4` remains a candidate** — promotion decision deferred until its acceptance gates (HTML benign FP 30/30, OOF/group metrics) are run for the v1.4 artifact. The served model stays `lr-tfidf-3cls-1.1`. v1.5/v1.5.1 remain experimental references only.
+
+Honesty note: individual group-reviewer signatures were not collected; the decision was made and confirmed directly by the project owner on 2026-11-15 (same recording convention as the G2 sign-off, which was also recorded at the owner's explicit request). Gate outcome under the amended criterion: **positive-bypass requirement MET** (`hpp-mal-004`). Remaining for full G3 closure: final report, slides and demo; `dev`→`main` merge and release stay blocked until those are complete.
